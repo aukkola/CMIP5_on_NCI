@@ -11,7 +11,7 @@ library(RSQLite)
 ### 1. SET PATH ###
 
 #Directory where to copy data
-outdir <- "/g/data1/w35/amu561/CMIP5_fluxnet/Data_for_Dongqin"
+outdir <- "/g/data1/w35/amu561/CMIP5_fluxnet/CMIP5_Data"
 
 
 ### 2. SELECT VARIABLES AND EXPERIMENTS ###
@@ -491,10 +491,22 @@ if (get_land_masks) {
   
   #Extract final models
   ind1 <- sapply(final_instances, function(x) which(mask_results$instance_id==x))
-  final_models <- mask_results[ind1,]
+  final_models_mask <- mask_results[ind1,]
   
   
+  #Check if found a mask for all models, return a warning if not
+  common_mods <- intersect(final_models$model, final_models_mask$model)
   
+  if (length(common_mods) != length(unique(final_models$model))) {
+    
+   not_found <- is.element(unique(final_models$model), common_mods)
+   
+    warning(paste("Could not find masks for models: ", 
+                  paste(unique(final_models$model)[!not_found],
+                  collapse=", ")))
+  }
+  
+    
   
   ###########################################
   ### Create database of selected outputs ###
