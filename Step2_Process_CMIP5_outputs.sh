@@ -20,15 +20,16 @@
 #        ranges 0-360 as not sure how to fix this in NCL, use Step3 R code to fix this)
 
 
-# NB.    !!!!!!!!!!!!!!!!!
+# Note:
 # Code will look for land masks in this folder:
 # ${IN_DIR}/../Processed_masks/${E}/${M}/
 # where E is experiment and M model
-# Make sure to save land masks here first
+# Make sure to save land masks here first or comment out masking
 
 
 # WARNING !!!!! : manually handles CMCC-CESM gpp and nep data, setting a 
 #                 symbolic link to a manually corrected file
+
 
 
 module load cdo
@@ -42,10 +43,10 @@ module load R
 ####################
 
 #Folder used in Step 1 
-IN_DIR="/g/data1/w35/amu561/CMIP5_fluxnet/Data"
+IN_DIR="/g/data1/w35/amu561/CMIP5_fluxnet/Data_for_Dongqin"
 
 #Desired output folder
-OUT_DIR="/g/data1/w35/amu561/CMIP5_fluxnet/Processed_data_1950_2099/"
+OUT_DIR="/g/data1/w35/amu561/CMIP5_fluxnet/Processed_data_test/"
 
 
 ######################
@@ -54,7 +55,7 @@ OUT_DIR="/g/data1/w35/amu561/CMIP5_fluxnet/Processed_data_1950_2099/"
 
 #Set start and end year 
 year_start=1950
-year_end=2099
+year_end=2010
 
 
 
@@ -96,12 +97,12 @@ do
         models=`find $V -maxdepth 1 -mindepth 1 ! -path . -type d | sed 's!.*/!!'`
 
 
-        echo "ECHOING models : ${models}"
 
         #Loop through models
         for M in $models
         do
 
+            echo "Processing model : ${M}"
 
             #Find ensemble name
             ens=`ls $V/$M`
@@ -118,7 +119,7 @@ do
 
 
             #Create output path
-            processed_path="${OUT_DIR}/${continent}/${var_short}/${M}/"
+            processed_path="${OUT_DIR}/${E}/${var_short}/${M}/"
 
             mkdir -p $processed_path
 
@@ -160,13 +161,12 @@ do
             mask_file=`find ${IN_DIR}/../Processed_masks/${E}/${M}/ -name "*.nc"`
 
 
-            #GFDL files have multiple variables, need to extract "sftlt"
+            #GFDL mask files have multiple variables, need to extract "sftlt"
             #or the division below fails.
             if [[ $M =~ "GFDL" ]]; then
               
-                #Create file name (use continent and varname so can run the code
-                #multiple times at the same time without inteference)
-                new_mask_file=${mask_file}"_${continent}_${var_short}_fixed.nc"
+                #Create file name for fixed file
+                new_mask_file=${mask_file}"_${var_short}_fixed.nc"
                 
                 #Select variable sftlf
                 cdo selname,'sftlf' $mask_file $new_mask_file
@@ -191,9 +191,6 @@ do
             processed_file="${processed_path}/${var_short}_${M}_${E}_${ens}"
 
 
-            echo "ECHOING processed file : ${processed_file}"
-
-
 
             ### Process variables ###
 
@@ -202,7 +199,7 @@ do
             if [[ $V =~ "Amon/tas" ]]; then
 
                 #Create output file
-                out_file="${processed_file}_deg_C_${year_start}_${year_end}_${continent}.nc"
+                out_file="${processed_file}_deg_C_${year_start}_${year_end}_${E}.nc"
 
                 #Mask ocean cells
                 cdo div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
@@ -219,7 +216,7 @@ do
 
 
                 #Create output file
-                out_file="${processed_file}_mm_month_${year_start}_${year_end}_${continent}.nc"
+                out_file="${processed_file}_mm_month_${year_start}_${year_end}_${E}.nc"
 
                 #Mask ocean cells
                 cdo div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
@@ -249,7 +246,7 @@ do
             elif [[ $V =~ "Amon/pr" ]]; then
 
                 #Create output file
-                out_file="${processed_file}_mm_month_${year_start}_${year_end}_${continent}.nc"
+                out_file="${processed_file}_mm_month_${year_start}_${year_end}_${E}.nc"
 
                 #Mask ocean cells
                 cdo div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
@@ -270,7 +267,7 @@ do
             elif [[ $V =~ "Lmon/gpp" ]]; then
 
                 #Create output file
-                out_file="${processed_file}_gC_m2_month_${year_start}_${year_end}_${continent}.nc"
+                out_file="${processed_file}_gC_m2_month_${year_start}_${year_end}_${E}.nc"
 
 
                 #If CMCC model, link to a manually corrected file (output corrupted)
@@ -307,7 +304,7 @@ do
 
 
                 #Create output file
-                out_file="${processed_file}_gC_m2_month_${year_start}_${year_end}_${continent}.nc"
+                out_file="${processed_file}_gC_m2_month_${year_start}_${year_end}_${E}.nc"
 
 
                 #If CMCC model, link to a manually corrected file (output corrupted)
@@ -345,7 +342,7 @@ do
             elif [[ $V =~ "Lmon/mrros" ]]; then
 
                 #Create output file
-                out_file="${processed_file}_mm_month_${year_start}_${year_end}_${continent}.nc"
+                out_file="${processed_file}_mm_month_${year_start}_${year_end}_${E}.nc"
 
                 cdo div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
 
@@ -363,7 +360,7 @@ do
             elif [[ $V =~ "Lmon/mrro" ]]; then
 
                 #Create output file
-                out_file="${processed_file}_mm_month_${year_start}_${year_end}_${continent}.nc"
+                out_file="${processed_file}_mm_month_${year_start}_${year_end}_${E}.nc"
 
                 cdo div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
 
@@ -378,11 +375,11 @@ do
 
 
 
-            ###--- Tasmax ---###
+            ###--- Daily tasmax ---###
             elif [[ $V =~ "day/tasmax" ]]; then
 
                 #Create output file
-                out_file="${processed_file}_deg_C_${year_start}_${year_end}_${continent}.nc"
+                out_file="${processed_file}_deg_C_${year_start}_${year_end}_${E}.nc"
 
                 #Mask ocean cells
                 cdo div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
@@ -394,11 +391,11 @@ do
 
 
 
-            ###--- Tasmax ---###
+            ###--- Daily precip ---###
             elif [[ $V =~ "day/pr" ]]; then
 
                 #Create output file
-                out_file="${processed_file}_mm_day_${year_start}_${year_end}_${continent}.nc"
+                out_file="${processed_file}_mm_day_${year_start}_${year_end}_${E}.nc"
 
                 #Mask ocean cells
                 cdo div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
@@ -413,12 +410,16 @@ do
             ###--- All other variables ---###
             else
 
-                out_file="${processed_file}_${year_start}_${year_end}_${continent}.nc"
+                #Create output file
+                out_file="${processed_file}_${year_start}_${year_end}_${E}.nc"
 
+                #Mask ocean cells
                 cdo div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
 
+                #Select years
                 cdo selyear,$year_start/$year_end ${processed_file}_temp.nc $out_file
 
+                #Remove temporary file
                 rm ${processed_file}_temp.nc
 
             fi
@@ -442,7 +443,6 @@ do
             if [[ $M =~ "CMCC-CESM" && $V =~ "Lmon/gpp" ]]
             then
 
-
                 rm $outfile_regrid #remove in case exists, copy will fail otherwise
                 cp -s ${IN_DIR}/../Files_to_replace_corrupted/gpp_Lmon_CMCC-CESM_historical_r1i1p1_1901-2004_v20140417_manually_fixed_monthly_total_regrid.nc ${out_file%".nc"}"_temp.nc"
 
@@ -451,7 +451,7 @@ do
 
                 rm ${out_file%".nc"}"_temp.nc"
 
-
+            #CMCC-CESM NEP output
             elif [[ $M =~ "CMCC-CESM" && $V =~ "Lmon/nep" ]]
             then
 
@@ -467,28 +467,43 @@ do
             #All other models
             else
 
-				        #Temp file name
-				        outfile_temp=${out_file%".nc"}"_temp.nc"
+				        #Temp file name if cropping outputs
+				        #outfile_temp=${out_file%".nc"}"_temp.nc"
 
 				        #Set inputs
                 export INPUTFILE=$out_file
-                export OUTPUTFILE=$outfile_temp
+                export OUTPUTFILE=$outfile_regrid 
+                
+                #Use this if cropping
+                #export OUTPUTFILE=$outfile_temp
 
-                #Run NCL code to regrid (cd to directory where NCL codes are.
+                
+                #Run NCL code to regrid (must be in the same folder as this code)
                 #Not ideal but can't find linked ncl function otherwise, not sure how to fix.
-                cd ${IN_DIR}"/../scripts/Bash/functions/"
                 ncl fix_cmip_lon.ncl
 
-
 				        #Then crop to extent
-				        cdo sellonlatbox,$ext $outfile_temp $outfile_regrid
+				        #cdo sellonlatbox,$ext $outfile_temp $outfile_regrid
 
-
-				        #Remove temp file
-				        rm $outfile_temp
+				        #Remove temp file if cropping
+				        #rm $outfile_temp
 
             fi
 
+            ### Fix longitude range ###
+            
+            #Changes lon range from 0-360 to (-180)-180
+            #Not sure how to do this in NCL so running a R script
+            cat > R_fix_lon.R << EOF
+
+            #Source function
+            source("fix_lon_range.R")
+
+            fix_lon("${outfile_regrid}")
+
+EOF
+            #Tidy up
+            rm R_fix_lon.R
 
 			      #Remove non-regridded file and merged time file
 			      rm $out_file
@@ -513,7 +528,7 @@ do
             #(mean not properly calculated, doesn't weight cells by area. Only for guidance)
             check_dir="${OUT_DIR}/Data_checks/${E}/${var_short}/Global_mean/"
             mkdir -p $check_dir
-			      cdo fldmean $outfile_regrid ${check_dir}/${M}_global_mean_${continent}.nc
+			      cdo fldmean $outfile_regrid ${check_dir}/${M}_global_mean_${var_short}.nc
 
 
 
@@ -538,36 +553,34 @@ do
 
 
         ### Map of first time slice ###
-        files_regrid <- list.files(path="${OUT_DIR}/${E}/${var_short}", recursive=TRUE, pattern="regrid.nc", full.names=TRUE)    #regridded
-		    #files        <- list.files(path="${OUT_DIR}/${E}/${var_short}", recursive=TRUE, pattern="${end_yr}.nc", full.names=TRUE) #non-regridded
-
+        files_regrid <- list.files(path="${OUT_DIR}/${E}/${var_short}", recursive=TRUE, 
+                                   pattern="regrid.nc", full.names=TRUE)    #regridded
+                                   
         data_regrid <- lapply(files_regrid, brick, stopIfNotEqualSpaced=FALSE)
-		    #data        <- lapply(files, brick, stopIfNotEqualSpaced=FALSE)
 
-        pdf("${plot_dir}/${var_short}_${E}_all_models_monthly_mean_regridded_${continent}.pdf", height=15, width=25)
+
+        pdf("${plot_dir}/${var_short}_${E}_all_models_monthly_mean_regridded.pdf", 
+            height=15, width=25)
         par(mai=c(0.2,0.2,0.2,0.6))
         par(mfcol=c(ceiling(sqrt(length(data_regrid))), ceiling(sqrt(length(data_regrid)))))
         lapply(data_regrid, function(x) plot(mean(x), ylab="", xlab="", yaxt="n", xaxt="n"))
         dev.off()
 
-		#pdf("${plot_dir}/${var_short}_${E}_all_models_monthly_mean_non-regridded_${continent}.pdf", height=15, width=25)
-		#par(mai=c(0.2,0.2,0.2,0.6))
-		#par(mfcol=c(ceiling(sqrt(length(data))), ceiling(sqrt(length(data)))))
-		#lapply(data, function(x) plot(mean(x), ylab="", xlab="", yaxt="n", xaxt="n"))
-		#dev.off()
 
+    		### Global mean time series ###
+    		files_mean <- list.files(path="${check_dir}", recursive=TRUE, 
+                                 pattern="global_mean", full.names=TRUE)
 
-		### Global mean time series ###
-		files_mean <- list.files(path=$check_dir, recursive=TRUE, pattern="global_mean", full.names=TRUE)
+    		nc_handles <- lapply(files_mean, nc_open)
+    		nc_data    <- lapply(nc_handles, ncvar_get, varid="${var_short}")
 
-		nc_handles <- lapply(files_mean, nc_open)
-		nc_data <- lapply(nc_handles, ncvar_get, varid=$var_short)
-
-		pdf("${plot_dir}/${var_short}_${E}_all_models_global_mean_timeseries_${continent}.pdf", height=13, width=40)
-		par(mai=c(0.2,0.2,0.2,0.6))
-		par(mfcol=c(ceiling(sqrt(length(nc_data))), ceiling(sqrt(length(nc_data)))))
-		lapply(nc_data, function(x) plot(x, type="l", col="blue", ylab="", xlab="", yaxt="n", xaxt="n"))
-		dev.off()
+    		pdf("${plot_dir}/${var_short}_${E}_all_models_global_mean_timeseries.pdf", 
+            height=13, width=40)
+    		par(mai=c(0.2,0.2,0.2,0.6))
+    		par(mfcol=c(ceiling(sqrt(length(nc_data))), ceiling(sqrt(length(nc_data)))))
+    		lapply(nc_data, function(x) plot(x, type="l", col="blue", ylab="", xlab="", 
+               yaxt="n", xaxt="n"))
+    		dev.off()
 
 
 EOF
@@ -579,6 +592,7 @@ EOF
 
 
     done #vars
+
 
 done #experiments
 
