@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #PBS -P dt6
-#PBS -l walltime=17200
+#PBS -l walltime=2:00:00
 #PBS -l mem=5000MB
 #PBS -l ncpus=1
 #PBS -j oe
@@ -24,7 +24,8 @@
 # Code will look for land masks in this folder:
 # ${IN_DIR}/../Processed_masks/${E}/${M}/
 # where E is experiment and M model
-# Make sure to save land masks here first or comment out masking
+# Make sure to set "get_land_masks <- TRUE" in Step 1 or comment out this
+# part of code. If no mask available, model is skipped
 
 
 # WARNING !!!!! : manually handles CMCC-CESM gpp and nep data, setting a 
@@ -42,11 +43,11 @@ module load R
 ### 1. SET PATHS ###
 ####################
 
-#Folder used in Step 1 
-IN_DIR="/g/data1/w35/amu561/CMIP5_fluxnet/Data_for_Dongqin"
+#Outdir folder used in Step 1 
+IN_DIR="/g/data1/w35/amu561/CMIP5_fluxnet/CMIP5_Data"
 
 #Desired output folder
-OUT_DIR="/g/data1/w35/amu561/CMIP5_fluxnet/Processed_data_test/"
+OUT_DIR="/g/data1/w35/amu561/CMIP5_fluxnet/Processed_CMIP5_data/"
 
 
 ######################
@@ -116,6 +117,18 @@ do
 
             #Input file to cdo functions (replaced below if files need merging)
             in_file=$files
+            
+            
+            #First check if can find mask file, if not skip model
+            
+            #Find land mask file
+            mask_file=`find ${IN_DIR}/../Processed_masks/${E}/${M}/ -name "*.nc"`
+
+            #If couldn't find mask file, skip model
+            if [[ -z $mask_file ]]; then
+              echo "WARNING: Could not find mask for ${M}, skipping model"
+              continue
+            fi
 
 
             #Create output path
@@ -157,10 +170,6 @@ do
             ###############################################################
 
 
-            #Find land mask file
-            mask_file=`find ${IN_DIR}/../Processed_masks/${E}/${M}/ -name "*.nc"`
-
-
             #GFDL mask files have multiple variables, need to extract "sftlt"
             #or the division below fails.
             if [[ $M =~ "GFDL" ]]; then
@@ -185,6 +194,7 @@ do
                 rm $in_file
                 in_file=$fixed_in_file
             fi
+            
             
             
             #Create output file name (complete when running each cdo command)
@@ -499,10 +509,11 @@ do
             #Source function
             source("fix_lon_range.R")
 
-            fix_lon("${outfile_regrid}")
+            fix_lon_range("${outfile_regrid}")
 
 EOF
-            #Tidy up
+            #Run and tidy up
+            Rscript R_fix_lon.R
             rm R_fix_lon.R
 
 			      #Remove non-regridded file and merged time file
