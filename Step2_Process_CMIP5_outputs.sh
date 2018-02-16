@@ -296,10 +296,10 @@ do
                     #Mask ocean cells
                     cdo div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
 
-                    #Convert from kg m-2 s-1 to g m-2 s-1
+                    #Convert from kg m-2 s-1 to g C m-2 month-1
                     cdo muldpm -expr,'gpp=gpp*60*60*24*1000' -selyear,$year_start/$year_end -setunit,'g C m-2 month-1' ${processed_file}_temp.nc $  {processed_file}_temp1.nc
 
-                    #Replace negative rainfall with zero (-O switch overwrites existing file if any)
+                    #Replace negative GPP with zero (-O switch overwrites existing file if any)
                     ncap2 -s 'where(gpp < 0) gpp=0' -O ${processed_file}_temp1.nc $out_file
 
 
@@ -335,7 +335,7 @@ do
                     #Mask ocean cells
                     cdo div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
 
-                    #Convert from kg m-2 s-1 to g m-2 s-1, and change sign (to go from NEP to NEE)
+                    #Convert from kg m-2 s-1 to g C m-2 month-1, and change sign (to go from NEP to NEE)
                     cdo muldpm -expr,'nep=nep*60*60*24*1000*(-1)' -selyear,$year_start/$year_end -setunit,'g C m-2 month-1' ${processed_file}_temp.nc ${processed_file}_temp1.nc
 
                     #Change variable name from NEP to NEE
