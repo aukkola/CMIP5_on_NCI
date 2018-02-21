@@ -4,6 +4,10 @@ library(DBI)
 library(RSQLite)
 
 
+#clear R environment
+rm(list=ls(all=TRUE))
+
+
 ####################
 ### Set criteria ###
 ####################
@@ -325,7 +329,7 @@ for (k in 1:nrow(final_models)) {
   #GISS
   if (any(final_models$model[k]==c("GISS-E2-R", "GISS-E2-H", "GISS-E2-H-CC", "GISS-E2-R-CC"))) {
     #Get model version
-    ext <- strsplit(final_models$model[k], "GISS")[[1]][2]
+    ext <- strsplit(final_models$model[k], "GISS-")[[1]][2]
     #Check
     if (!grepl("GISS", final_paths$path[k]) & !grepl(ext, final_paths$path[k])) {
       stop("File path doesn't contain correct model")
@@ -514,7 +518,7 @@ if (get_land_masks) {
   
   
   
-  for (k in 1:nrow(final_models)) {
+  for (k in 1:nrow(final_models_mask)) {
     
     #If saving to same directory
     if (combine) {
@@ -539,16 +543,16 @@ if (get_land_masks) {
     #Need an exception for the GISS and FIO-ESM models as file path structure is different
     
     #GISS
-    if (any(final_models$model[k]==c("GISS-E2-R", "GISS-E2-H", "GISS-E2-H-CC", "GISS-E2-R-CC"))) {
+    if (any(final_models_mask$model[k]==c("GISS-E2-R", "GISS-E2-H", "GISS-E2-H-CC", "GISS-E2-R-CC"))) {
       #Get model version
-      ext <- strsplit(final_models$model[k], "GISS-")[[1]][2]
+      ext <- strsplit(final_models_mask$model[k], "GISS-")[[1]][2]
       #Check
       if (!grepl(ext, final_paths$path[k])) {
         stop("File path doesn't contain correct model")
       }
 
       #FIO-ESM (slightly different spelling in paths)
-    } else if (final_models$model[k] == "FIO-ESM") {
+    } else if (final_models_mask$model[k] == "FIO-ESM") {
       if (!grepl("FIO_ESM", final_paths$path[k])) {
         stop("File path doesn't contain correct model")
       }
@@ -556,17 +560,17 @@ if (get_land_masks) {
       #Other models
     } else {
       #Model check
-      if (!grepl(final_models$model[k], final_paths$path[k])) {
+      if (!grepl(final_models_mask$model[k], final_paths$path[k])) {
         stop("File path doesn't contain correct model")
       } 
       #Variable check
-      if (!grepl(final_models$variable[k], final_paths$path[k])) {
+      if (!grepl(final_models_mask$variable[k], final_paths$path[k])) {
         stop("File path doesn't contain correct variable")
       }
     }  
     
     #Experiment check
-    if (!grepl(final_models$experiment[k], final_paths$path[k])) {
+    if (!grepl(final_models_mask$experiment[k], final_paths$path[k])) {
       stop("File path doesn't contain correct experiment")
     }
     
@@ -578,7 +582,7 @@ if (get_land_masks) {
     #var names to be returned)
     
     file.symlink(from=list.files(final_paths$path[k], full.names=TRUE, 
-                                 pattern=paste0(final_models$variable[k], "_")), 
+                                 pattern=paste0(final_models_mask$variable[k], "_")), 
                  to=target_dir)
     
   }
