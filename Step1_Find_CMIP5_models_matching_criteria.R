@@ -499,14 +499,14 @@ if (get_land_masks) {
   
   
   #Check if found a mask for all models, return a warning if not
-  common_mods <- intersect(final_models_mask$model, final_models_mask$model)
+  common_mods <- intersect(final_models$model, final_models_mask$model)
   
-  if (length(common_mods) != length(unique(final_models_mask$model))) {
+  if (length(common_mods) != length(unique(final_models$model))) {
     
-   not_found <- is.element(unique(final_models_mask$model), common_mods)
+   not_found <- is.element(unique(final_models$model), common_mods)
    
     warning(paste("Could not find masks for models: ", 
-                  paste(unique(final_models_mask$model)[!not_found],
+                  paste(unique(final_models$model)[!not_found],
                   collapse=", ")))
   }
   
