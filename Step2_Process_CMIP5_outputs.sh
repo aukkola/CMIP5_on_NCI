@@ -43,11 +43,12 @@ module load R
 ### 1. SET PATHS ###
 ####################
 
-#Outdir folder used in Step 1 
-IN_DIR="/g/data1/w35/amu561/CMIP5_fluxnet/CMIP5_Data"
+#Outdir folder used in Step 1
+IN_DIR="/g/data1/w35/amu561/CMIP5_testing/CMIP5_Data"
 
 #Desired output folder
-OUT_DIR="/g/data1/w35/amu561/CMIP5_fluxnet/Processed_CMIP5_data/"
+OUT_DIR="/g/data1/w35/amu561/CMIP5_testing/Processed_CMIP5_data/"
+
 
 
 ######################
@@ -122,7 +123,7 @@ do
             #First check if can find mask file, if not skip model
             
             #Find land mask file
-            mask_file=`find ${IN_DIR}/../Processed_masks/${E}/${M}/ -name "*.nc"`
+            mask_file=`find ${IN_DIR}/../Processed_masks/${E}/${M}/ -name "*${M}*.nc"`
 
             #If couldn't find mask file, skip model
             if [[ -z $mask_file ]]; then
@@ -457,7 +458,7 @@ do
                 cp -s ${IN_DIR}/../Files_to_replace_corrupted/gpp_Lmon_CMCC-CESM_historical_r1i1p1_1901-2004_v20140417_manually_fixed_monthly_total_regrid.nc ${out_file%".nc"}"_temp.nc"
 
                 #Select years
-                cdo sellonlatbox,$ext -selyear,$year_start/$year_end ${out_file%".nc"}"_temp.nc" $outfile_regrid
+                cdo selyear,$year_start/$year_end ${out_file%".nc"}"_temp.nc" $outfile_regrid
 
                 rm ${out_file%".nc"}"_temp.nc"
 
@@ -469,7 +470,7 @@ do
                 cp -s ${IN_DIR}/../Files_to_replace_corrupted/nee_Lmon_CMCC-CESM_historical_r1i1p1_1901-2004_v20140417_manually_fixed_monthly_total_regrid.nc {out_file%".nc"}"_temp.nc"
 
                 #Select years
-                cdo sellonlatbox,$ext -selyear,$year_start/$year_end ${out_file%".nc"}"_temp.nc" $outfile_regrid
+                cdo selyear,$year_start/$year_end ${out_file%".nc"}"_temp.nc" $outfile_regrid
 
                 rm ${out_file%".nc"}"_temp.nc"
 
@@ -543,67 +544,64 @@ EOF
 
 
 
-        done #models
+            
+                    ##############################
+                    ###--- Data check cont. ---###
+                    ##############################
+
+                    #Plot monthly mean of variable in all models (for regridded files)
+                    #Used to check no errors have occurred during processing (or that original file is not corrupted)
+
+                    plot_dir="${OUT_DIR}/Data_checks/Plots/${M}/"
+                    mkdir -p $plot_dir
+
+                    #Create R script for plotting
+                    cat > R_plot.R << EOF
+                    library(raster)
+                    library(ncdf4)
 
 
-
-        ##############################
-        ###--- Data check cont. ---###
-        ##############################
-
-        #Plot monthly mean of variable in all models (for regridded files)
-        #Used to check no errors have occurred during processing (or that original file is not corrupted)
-
-        plot_dir="${OUT_DIR}/Data_checks/Plots/"
-        mkdir -p $plot_dir
-
-        #Create R script for plotting
-        cat > R_plot.R << EOF
-        library(raster)
-        library(ncdf4)
+                    ### Map of first time slice ###
+                    files_regrid <- list.files(path="${OUT_DIR}/${E}/${var_short}/${M}/", recursive=TRUE, 
+                                               pattern="regrid.nc", full.names=TRUE)    #regridded
+                                               
+                    data_regrid <- lapply(files_regrid, brick, stopIfNotEqualSpaced=FALSE)
 
 
-        ### Map of first time slice ###
-        files_regrid <- list.files(path="${OUT_DIR}/${E}/${var_short}", recursive=TRUE, 
-                                   pattern="regrid.nc", full.names=TRUE)    #regridded
-                                   
-        data_regrid <- lapply(files_regrid, brick, stopIfNotEqualSpaced=FALSE)
+                    pdf("${plot_dir}/${var_short}_${E}_${M}_monthly_mean_regridded.pdf", 
+                        height=5, width=8)
+                    par(mai=c(0.2,0.2,0.2,0.6))
+                    par(mfcol=c(ceiling(sqrt(length(data_regrid))), ceiling(sqrt(length(data_regrid)))))
+                    lapply(data_regrid, function(x) plot(mean(x), ylab="", xlab="", yaxt="n", xaxt="n"))
+                    dev.off()
 
 
-        pdf("${plot_dir}/${var_short}_${E}_all_models_monthly_mean_regridded.pdf", 
-            height=15, width=25)
-        par(mai=c(0.2,0.2,0.2,0.6))
-        par(mfcol=c(ceiling(sqrt(length(data_regrid))), ceiling(sqrt(length(data_regrid)))))
-        lapply(data_regrid, function(x) plot(mean(x), ylab="", xlab="", yaxt="n", xaxt="n"))
-        dev.off()
+                		### Global mean time series ###
+                		files_mean <- list.files(path="${check_dir}", recursive=TRUE, 
+                                             pattern="${M}_global_mean", full.names=TRUE)
 
+                		nc_handles <- lapply(files_mean, nc_open)
+                		nc_data    <- lapply(nc_handles, ncvar_get, varid="${var_short}")
 
-    		### Global mean time series ###
-    		files_mean <- list.files(path="${check_dir}", recursive=TRUE, 
-                                 pattern="global_mean", full.names=TRUE)
-
-    		nc_handles <- lapply(files_mean, nc_open)
-    		nc_data    <- lapply(nc_handles, ncvar_get, varid="${var_short}")
-
-    		pdf("${plot_dir}/${var_short}_${E}_all_models_global_mean_timeseries.pdf", 
-            height=13, width=40)
-    		par(mai=c(0.2,0.2,0.2,0.6))
-    		par(mfcol=c(ceiling(sqrt(length(nc_data))), ceiling(sqrt(length(nc_data)))))
-    		lapply(nc_data, function(x) plot(x, type="l", col="blue", ylab="", xlab="", 
-               yaxt="n", xaxt="n"))
-    		dev.off()
+                		pdf("${plot_dir}/${var_short}_${E}_${M}_global_mean_timeseries.pdf", 
+                        height=13, width=40)
+                		par(mai=c(0.2,0.2,0.2,0.6))
+                		par(mfcol=c(ceiling(sqrt(length(nc_data))), ceiling(sqrt(length(nc_data)))))
+                		lapply(nc_data, function(x) plot(x, type="l", col="blue", ylab="", xlab="", 
+                           yaxt="n", xaxt="n"))
+                		dev.off()
 
 
 EOF
 
+                    #Run script and remove afterwards
+                    Rscript R_plot.R
+                    rm R_plot.R
 
-        #Run script and remove afterwards
-        Rscript R_plot.R
-        rm R_plot.R
 
+        done #models
 
     done #vars
-
 
 done #experiments
 
