@@ -15,14 +15,14 @@ rm(list=ls(all=TRUE))
 ### 1. SET PATH ###
 
 #Directory where to copy data
-outdir <- "/g/data1/w35/amu561/CMIP5_fluxnet/CMIP5_Data"
+outdir <- "/g/data1/w35/amu561/CMIP5_testing/CMIP5_Data"
 
 
 ### 2. SELECT VARIABLES AND EXPERIMENTS ###
 
 #Variables and experiments
-variables  <- c("pr", "tas")
-experiment <- c("historical", "rcp85")
+variables  <- c("pr", "tas", "evspsbl","hfls","hfss","rlds","rlus","rsds","rsus")
+experiment <- c("historical", "rcp45")
 mip        <- c("Amon")
 
 
@@ -41,7 +41,7 @@ ensemble <- NA #"r1i1p1"
 #If want to e.g. combine historical and RCP8.5 runs,
 #use this option, else set to FALSE
 combine  <- TRUE
-dir_name <- "historical_rcp8.5" 
+dir_name <- "historical_rcp4.5" 
 
 
 ### 5. DECIDE IF WANT LAND MASKS ###
@@ -179,8 +179,22 @@ if (exists("mods")) {
     #find indices for required models
     req_models <- sapply(mods, function(x) which(common_models==x))
     
-    common_models <- common_models[req_models]
-    selected_ens  <- selected_ens[req_models]
+    #If any indices empty, remove these
+    if(any(sapply(req_models, length) == 0)){
+      
+      ind <- which(sapply(req_models, length) == 0)
+      #Produce warning
+      warning(paste("Could not find files for models", 
+                    paste(names(req_models)[ind], collapse=", ")))
+      
+      #Remove empty indices
+      req_models <- req_models[-ind]
+      
+    }
+    
+    #Extract available models and ensembles
+    common_models <- common_models[unlist(req_models)]
+    selected_ens  <- selected_ens[unlist(req_models)]
     
   }
 }
