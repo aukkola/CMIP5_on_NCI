@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #PBS -P dt6
-#PBS -l walltime=2:00:00
+#PBS -l walltime=3:00:00
 #PBS -l mem=5000MB
 #PBS -l ncpus=1
 #PBS -j oe
@@ -57,7 +57,7 @@ OUT_DIR="/g/data1/w35/amu561/CMIP5_testing/Processed_CMIP5_data/"
 
 #Set start and end year 
 year_start=1950
-year_end=2010
+year_end=2050
 
 
 
@@ -233,7 +233,7 @@ do
                 cdo div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
 
 
-                #These models have ET 1000 times too high, divide ET to fix (see CMIP errata, http://cmip-pcmdi.llnl.gov/cmip5/errata/cmip5errata.html)
+                #These models have ET 1000 times too high, divide ET to fix (see CMIP errata, https://pcmdi.llnl.gov/mips/cmip5/errata.html)
                 if [[ $M =~ "NorESM1-M" ]]; then
                     #Convert from kg m-2 s-1 to mm/month, and divide by 1000 to fix corrupted file
                     cdo muldpm -expr,'evspsbl=evspsbl*60*60*24/1000' -selyear,$year_start/$year_end -setunit,'mm/month' ${processed_file}_temp.nc $out_file
@@ -519,7 +519,6 @@ EOF
 
 			      #Remove non-regridded file and merged time file
 			      rm $out_file
-			      rm $in_file
 
             ###########################################
             ###--- Data quality and error checks ---###
