@@ -138,6 +138,14 @@ do
             mkdir -p $processed_path
 
 
+            #Skips files already processed to speed up processing
+            ext_files=(${processed_path}/*regrid.nc)
+            
+            if [ -e ${ext_files[0]} ]; then
+              echo "${M} - ${var_short} already processed, skipping"
+              continue
+            fi
+
 
             ### If multiple files, merge files ###
 
@@ -151,7 +159,7 @@ do
                 export SKIP_SAME_TIME=1
 
                 #Merge time
-                cdo mergetime $files $out_merged
+                cdo -L mergetime $files $out_merged
 
                 #Find time period (brackets turn result into array)
                 years=(`cdo showyear $out_merged`)
@@ -179,7 +187,7 @@ do
                 new_mask_file=${mask_file}"_${var_short}_fixed.nc"
                 
                 #Select variable sftlf
-                cdo selname,'sftlf' $mask_file $new_mask_file
+                cdo -L selname,'sftlf' $mask_file $new_mask_file
                 
                 #Replace mask file with new file
                 mask_file=$new_mask_file
@@ -189,7 +197,7 @@ do
                 fixed_in_file=${in_file}"_fixed.nc"
                 
                 #Select variable being processed
-                cdo selname,$var_short $in_file $fixed_in_file
+                cdo -L selname,$var_short $in_file $fixed_in_file
                 
                 #Remove old $in_file and replace with new fixed file
                 rm $in_file
@@ -213,7 +221,7 @@ do
                 out_file="${processed_file}_deg_C_${year_start}_${year_end}_${E}.nc"
 
                 #Mask ocean cells
-                cdo div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
+                cdo -L div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
 
                 #Convert Kelvin to Celsius
                 cdo expr,'tas=tas-273.15' -selyear,$year_start/$year_end -setunit,'degrees C' ${processed_file}_temp.nc $out_file
@@ -230,21 +238,21 @@ do
                 out_file="${processed_file}_mm_month_${year_start}_${year_end}_${E}.nc"
 
                 #Mask ocean cells
-                cdo div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
+                cdo -L div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
 
 
                 #These models have ET 1000 times too high, divide ET to fix (see CMIP errata, https://pcmdi.llnl.gov/mips/cmip5/errata.html)
                 if [[ $M =~ "NorESM1-M" ]]; then
                     #Convert from kg m-2 s-1 to mm/month, and divide by 1000 to fix corrupted file
-                    cdo muldpm -expr,'evspsbl=evspsbl*60*60*24/1000' -selyear,$year_start/$year_end -setunit,'mm/month' ${processed_file}_temp.nc $out_file
+                    cdo -L muldpm -expr,'evspsbl=evspsbl*60*60*24/1000' -selyear,$year_start/$year_end -setunit,'mm/month' ${processed_file}_temp.nc $out_file
 
                 #This model has wrong ET sign (negative ET), change sign by multiplying with -1
                 elif [[ $M =~ "CMCC-C" ]]; then
-                    cdo muldpm -expr,'evspsbl=evspsbl*60*60*24*(-1)' -selyear,$year_start/$year_end -setunit,'mm/month' ${processed_file}_temp.nc $out_file
+                    cdo -L muldpm -expr,'evspsbl=evspsbl*60*60*24*(-1)' -selyear,$year_start/$year_end -setunit,'mm/month' ${processed_file}_temp.nc $out_file
 
                 else
                     #Convert from kg m-2 s-1 to mm/month
-                    cdo muldpm -expr,'evspsbl=evspsbl*60*60*24' -selyear,$year_start/$year_end -setunit,'mm/month' ${processed_file}_temp.nc $out_file
+                    cdo -L muldpm -expr,'evspsbl=evspsbl*60*60*24' -selyear,$year_start/$year_end -setunit,'mm/month' ${processed_file}_temp.nc $out_file
                 fi
 
 
@@ -260,7 +268,7 @@ do
                 out_file="${processed_file}_mm_month_${year_start}_${year_end}_${E}.nc"
 
                 #Mask ocean cells
-                cdo div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
+                cdo -L div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
 
                 #Convert from kg m-2 s-1 to mm/month
                 cdo muldpm -expr,'pr=pr*60*60*24' -selyear,$year_start/$year_end -setunit,'mm/month' ${processed_file}_temp.nc ${processed_file}_temp1.nc
@@ -295,7 +303,7 @@ do
                 else
 
                     #Mask ocean cells
-                    cdo div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
+                    cdo -L div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
 
                     #Convert from kg m-2 s-1 to g C m-2 month-1
                     cdo muldpm -expr,'gpp=gpp*60*60*24*1000' -selyear,$year_start/$year_end -setunit,'g C m-2 month-1' ${processed_file}_temp.nc $  {processed_file}_temp1.nc
@@ -334,7 +342,7 @@ do
                 else
 
                     #Mask ocean cells
-                    cdo div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
+                    cdo -L div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
 
                     #Convert from kg m-2 s-1 to g C m-2 month-1, and change sign (to go from NEP to NEE)
                     cdo muldpm -expr,'nep=nep*60*60*24*1000*(-1)' -selyear,$year_start/$year_end -setunit,'g C m-2 month-1' ${processed_file}_temp.nc ${processed_file}_temp1.nc
@@ -355,7 +363,7 @@ do
                 #Create output file
                 out_file="${processed_file}_mm_month_${year_start}_${year_end}_${E}.nc"
 
-                cdo div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
+                cdo -L div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
 
                 #Convert from kg m-2 s-1 to mm/month
                 cdo muldpm -expr,'mrros=mrros*60*60*24' -selyear,$year_start/$year_end -setunit,'mm/month' ${processed_file}_temp.nc ${processed_file}_temp1.nc
@@ -373,7 +381,7 @@ do
                 #Create output file
                 out_file="${processed_file}_mm_month_${year_start}_${year_end}_${E}.nc"
 
-                cdo div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
+                cdo -L div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
 
                 #Convert from kg m-2 s-1 to mm/month
                 cdo muldpm -expr,'mrro=mrro*60*60*24' -selyear,$year_start/$year_end -setunit,'mm/month' ${processed_file}_temp.nc ${processed_file}_temp1.nc
@@ -393,7 +401,7 @@ do
                 out_file="${processed_file}_deg_C_${year_start}_${year_end}_${E}.nc"
 
                 #Mask ocean cells
-                cdo div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
+                cdo -L div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
 
                 #Convert Kelvin to Celsius (change unit, average to monthly, select years and convert to C)
                 cdo expr,'tasmax=tasmax-273.15' -selyear,$year_start/$year_end -monmean -setunit,'degrees C' ${processed_file}_temp.nc $out_file
@@ -409,7 +417,7 @@ do
                 out_file="${processed_file}_mm_day_${year_start}_${year_end}_${E}.nc"
 
                 #Mask ocean cells
-                cdo div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
+                cdo -L div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
 
                 #Convert Kelvin to Celsius (change unit, average to monthly, select years and convert to C)
                 cdo expr,'pr=pr*60*60*24' -selyear,$year_start/$year_end -setunit,'mm/day' ${processed_file}_temp.nc $out_file
@@ -425,7 +433,7 @@ do
                 out_file="${processed_file}_${year_start}_${year_end}_${E}.nc"
 
                 #Mask ocean cells
-                cdo div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
+                cdo -L div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
 
                 #Select years
                 cdo selyear,$year_start/$year_end ${processed_file}_temp.nc $out_file
