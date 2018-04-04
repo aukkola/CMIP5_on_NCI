@@ -16,8 +16,7 @@
 # ii) converts required variables to desired units,
 # iii) extracts desired time period
 # iiii) masks out non-land grid cells
-# iiiii) regrids data from Pacific- to Greenwich-central (note longitude still
-#        ranges 0-360 as not sure how to fix this in NCL, use Step3 R code to fix this)
+# iiiii) regrids data from Pacific- to Greenwich-central
 
 
 # Note:
@@ -450,9 +449,9 @@ do
             fi
             
                 
-            ############################################################################
-            ###--- Crop and regrid output file from Pacific- to Greenwich-central ---###
-            ############################################################################
+            ###################################################################
+            ###--- Regrid output file from Pacific- to Greenwich-central ---###
+            ###################################################################
 
             # Modify output file name
             outfile_regrid=${out_file%".nc"}"_regrid.nc"
@@ -486,44 +485,15 @@ do
             #All other models
             else
 
-				        #Temp file name if cropping outputs
-				        #outfile_temp=${out_file%".nc"}"_temp.nc"
 
-				        #Set inputs
-                export INPUTFILE=$out_file
-                export OUTPUTFILE=$outfile_regrid 
-                
-                #Use this if cropping
-                #export OUTPUTFILE=$outfile_temp
-
-                
-                #Run NCL code to regrid (must be in the same folder as this code)
-                #Not ideal but can't find linked ncl function otherwise, not sure how to fix.
-                ncl fix_cmip_lon.ncl
-
-				        #Then crop to extent
-				        #cdo sellonlatbox,$ext $outfile_temp $outfile_regrid
+				        #Regrid using CDO sellonlatbox (note this adjusts lon variable
+                #to range [-180, 180] but not lon_bounds)
+				        cdo sellonlatbox,-180,180,-90,90 $outfile $outfile_regrid
 
 				        #Remove temp file if cropping
 				        #rm $outfile_temp
 
             fi
-
-            ### Fix longitude range ###
-            
-            #Changes lon range from 0-360 to (-180)-180
-            #Not sure how to do this in NCL so running a R script
-            cat > R_fix_lon.R << EOF
-
-            #Source function
-            source("fix_lon_range.R")
-
-            fix_lon_range("${outfile_regrid}")
-
-EOF
-            #Run and tidy up
-            Rscript R_fix_lon.R
-            rm R_fix_lon.R
 
 			      #Remove non-regridded file and merged time file
 			      rm $out_file
