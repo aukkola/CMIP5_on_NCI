@@ -506,7 +506,7 @@ do
 
 				        #Regrid using CDO sellonlatbox (note this adjusts lon variable
                 #to range [-180, 180] but not lon_bounds)
-				        cdo sellonlatbox,-180,180,-90,90 $outfile $outfile_regrid
+				        cdo sellonlatbox,-180,180,-90,90 $out_file $outfile_regrid
 
                 #Above CDO command doesn't fix lon_bounds, using a python
                 #script to fix these (provided by Arden)
