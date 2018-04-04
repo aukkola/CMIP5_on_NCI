@@ -34,8 +34,8 @@
 
 module load cdo
 module load nco
-module load ncl
 module load R
+module load python
 
 
 ####################
@@ -58,6 +58,8 @@ OUT_DIR="/g/data1/w35/amu561/CMIP5_testing/Processed_CMIP5_data/"
 year_start=1950
 year_end=2050
 
+#Set if want data masked for oceans !!!! NB. only currently applied to Amon/pr and Amon/tas !!!!!!!!!
+mask_oceans="TRUE"
 
 
 #-------------------------------------------------------------------------------
@@ -219,11 +221,19 @@ do
                 #Create output file
                 out_file="${processed_file}_deg_C_${year_start}_${year_end}_${E}.nc"
 
-                #Mask ocean cells
-                cdo -L div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
+
+                if [[ $mask_oceans == "TRUE" ]]; then
+                  
+                  #Mask ocean cells
+                  cdo -L div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
+                  
+                  #Replace input file for next step
+                  in_file=${processed_file}_temp.nc
+                  
+                fi
 
                 #Convert Kelvin to Celsius
-                cdo expr,'tas=tas-273.15' -selyear,$year_start/$year_end -setunit,'degrees C' ${processed_file}_temp.nc $out_file
+                cdo expr,'tas=tas-273.15' -selyear,$year_start/$year_end -setunit,'degrees C' $in_file $out_file
 
                 rm ${processed_file}_temp.nc
 
@@ -266,11 +276,19 @@ do
                 #Create output file
                 out_file="${processed_file}_mm_month_${year_start}_${year_end}_${E}.nc"
 
-                #Mask ocean cells
-                cdo -L div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
+                #Mask oceans
+                if [[ $mask_oceans == "TRUE" ]]; then
+                  
+                  #Mask ocean cells
+                  cdo -L div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
+                  
+                  #Replace input file for next step
+                  in_file=${processed_file}_temp.nc
+                  
+                fi
 
                 #Convert from kg m-2 s-1 to mm/month
-                cdo muldpm -expr,'pr=pr*60*60*24' -selyear,$year_start/$year_end -setunit,'mm/month' ${processed_file}_temp.nc ${processed_file}_temp1.nc
+                cdo muldpm -expr,'pr=pr*60*60*24' -selyear,$year_start/$year_end -setunit,'mm/month' $in_file ${processed_file}_temp1.nc
 
                 #Replace negative rainfall with zero
                 ncap2 -s 'where(pr < 0) pr=0' -O ${processed_file}_temp1.nc $out_file
@@ -489,6 +507,10 @@ do
 				        #Regrid using CDO sellonlatbox (note this adjusts lon variable
                 #to range [-180, 180] but not lon_bounds)
 				        cdo sellonlatbox,-180,180,-90,90 $outfile $outfile_regrid
+
+                #Above CDO command doesn't fix lon_bounds, using a python
+                #script to fix these (provided by Arden)
+                python fix_lon.py "${outfile_regrid}"
 
 				        #Remove temp file if cropping
 				        #rm $outfile_temp
