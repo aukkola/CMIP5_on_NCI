@@ -11,11 +11,18 @@
 #PBS -l jobfs=1GB
 
 
+### REQUIRES: ###
+# 1) CDO command line tools
+# 2) NCO
+# 3) R with packages raster and ncdf4
+# 4) python with package pandas
+
+
 # Code processes monthly CMIP5 outputs
 # i) merges all years into one file (when applicable),
 # ii) converts required variables to desired units,
 # iii) extracts desired time period
-# iiii) masks out non-land grid cells
+# iiii) masks out non-land grid cells (fi mask_oceans selected)
 # iiiii) regrids data from Pacific- to Greenwich-central
 
 
@@ -23,8 +30,8 @@
 # Code will look for land masks in this folder:
 # ${IN_DIR}/../Processed_masks/${E}/${M}/
 # where E is experiment and M model
-# Make sure to set "get_land_masks <- TRUE" in Step 1 or comment out this
-# part of code. If no mask available, model is skipped
+# Make sure to set "get_land_masks <- TRUE" in Step 1 if using mask_oceans=true. 
+# If no mask available, model is skipped
 
 
 # WARNING !!!!! : manually handles CMCC-CESM gpp and nep data, setting a 
@@ -35,7 +42,12 @@
 module load cdo
 module load nco
 module load R
-module load python
+
+#This needs fixing on raijin, have to load miniconda to use pandas
+source activate /home/561/amu561/miniconda2
+#module load python
+
+
 
 
 ####################
@@ -58,8 +70,10 @@ OUT_DIR="/g/data1/w35/amu561/CMIP5_testing/Processed_CMIP5_data/"
 year_start=1950
 year_end=2050
 
-#Set if want data masked for oceans !!!! NB. only currently applied to Amon/pr and Amon/tas !!!!!!!!!
-mask_oceans="TRUE"
+#Mask oceans? Set to true (masking) or false (no masking). If set to true and no
+#mask is found, the model and variable is skipped.
+mask_oceans=true
+
 
 
 #-------------------------------------------------------------------------------
@@ -121,17 +135,22 @@ do
             in_file=$files
             
             
-            #First check if can find mask file, if not skip model
-            
-            #Find land mask file
-            mask_file=`find ${IN_DIR}/../Processed_masks/${E}/${M}/ -name "*${M}*.nc"`
+            #If selected to mask oceans, first check if can find a land mask file
+            #if not, skip model
+  
+            if $mask_oceans; then
+              
+              #Find land mask file
+              mask_file=`find ${IN_DIR}/../Processed_masks/${E}/${M}/ -name "*${M}*.nc"`
 
-            #If couldn't find mask file, skip model
-            if [[ -z $mask_file ]]; then
-              echo "WARNING: Could not find mask for ${M}, skipping model"
-              continue
+              #If couldn't find mask file, skip model
+              if [[ -z $mask_file ]]; then
+                echo "WARNING: Could not find mask for ${M}, skipping model"
+                continue
+              fi
+
             fi
-
+            
 
             #Create output path
             processed_path="${OUT_DIR}/${E}/${var_short}/${M}/"
@@ -211,9 +230,23 @@ do
             processed_file="${processed_path}/${var_short}_${M}_${E}_${ens}"
 
 
-
+            #########################
             ### Process variables ###
-
+            #########################
+            
+            
+            #First mask for oceans if this option was selected
+            if $mask_oceans; then
+              
+              #Mask ocean cells
+              cdo -L div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
+              
+              #Replace input file for next step
+              in_file=${processed_file}_temp.nc
+              
+            fi
+                  
+            
 
             ###--- Air temperature ---###
             if [[ $V =~ "Amon/tas" ]]; then
@@ -221,22 +254,8 @@ do
                 #Create output file
                 out_file="${processed_file}_deg_C_${year_start}_${year_end}_${E}.nc"
 
-
-                if [[ $mask_oceans == "TRUE" ]]; then
-                  
-                  #Mask ocean cells
-                  cdo -L div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
-                  
-                  #Replace input file for next step
-                  in_file=${processed_file}_temp.nc
-                  
-                fi
-
                 #Convert Kelvin to Celsius
                 cdo expr,'tas=tas-273.15' -selyear,$year_start/$year_end -setunit,'degrees C' $in_file $out_file
-
-                rm ${processed_file}_temp.nc
-
 
 
             ###--- Evapotranspiration ---###
@@ -246,27 +265,20 @@ do
                 #Create output file
                 out_file="${processed_file}_mm_month_${year_start}_${year_end}_${E}.nc"
 
-                #Mask ocean cells
-                cdo -L div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
-
 
                 #These models have ET 1000 times too high, divide ET to fix (see CMIP errata, https://pcmdi.llnl.gov/mips/cmip5/errata.html)
                 if [[ $M =~ "NorESM1-M" ]]; then
                     #Convert from kg m-2 s-1 to mm/month, and divide by 1000 to fix corrupted file
-                    cdo -L muldpm -expr,'evspsbl=evspsbl*60*60*24/1000' -selyear,$year_start/$year_end -setunit,'mm/month' ${processed_file}_temp.nc $out_file
+                    cdo -L muldpm -expr,'evspsbl=evspsbl*60*60*24/1000' -selyear,$year_start/$year_end -setunit,'mm/month' $in_file $out_file
 
                 #This model has wrong ET sign (negative ET), change sign by multiplying with -1
                 elif [[ $M =~ "CMCC-C" ]]; then
-                    cdo -L muldpm -expr,'evspsbl=evspsbl*60*60*24*(-1)' -selyear,$year_start/$year_end -setunit,'mm/month' ${processed_file}_temp.nc $out_file
+                    cdo -L muldpm -expr,'evspsbl=evspsbl*60*60*24*(-1)' -selyear,$year_start/$year_end -setunit,'mm/month' $in_file $out_file
 
                 else
                     #Convert from kg m-2 s-1 to mm/month
-                    cdo -L muldpm -expr,'evspsbl=evspsbl*60*60*24' -selyear,$year_start/$year_end -setunit,'mm/month' ${processed_file}_temp.nc $out_file
+                    cdo -L muldpm -expr,'evspsbl=evspsbl*60*60*24' -selyear,$year_start/$year_end -setunit,'mm/month' $in_file $out_file
                 fi
-
-
-
-                rm ${processed_file}_temp.nc
 
 
 
@@ -276,27 +288,13 @@ do
                 #Create output file
                 out_file="${processed_file}_mm_month_${year_start}_${year_end}_${E}.nc"
 
-                #Mask oceans
-                if [[ $mask_oceans == "TRUE" ]]; then
-                  
-                  #Mask ocean cells
-                  cdo -L div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
-                  
-                  #Replace input file for next step
-                  in_file=${processed_file}_temp.nc
-                  
-                fi
-
                 #Convert from kg m-2 s-1 to mm/month
                 cdo muldpm -expr,'pr=pr*60*60*24' -selyear,$year_start/$year_end -setunit,'mm/month' $in_file ${processed_file}_temp1.nc
 
                 #Replace negative rainfall with zero
                 ncap2 -s 'where(pr < 0) pr=0' -O ${processed_file}_temp1.nc $out_file
 
-
-                rm ${processed_file}_temp.nc
                 rm ${processed_file}_temp1.nc
-
 
 
             ###--- Gross primary production ---###
@@ -315,21 +313,14 @@ do
                     #Select appropriate years
                     cdo selyear,$year_start/$year_end ${processed_file}_temp.nc $out_file
 
-                    rm ${processed_file}_temp.nc
-
                 else
 
-                    #Mask ocean cells
-                    cdo -L div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
-
                     #Convert from kg m-2 s-1 to g C m-2 month-1
-                    cdo muldpm -expr,'gpp=gpp*60*60*24*1000' -selyear,$year_start/$year_end -setunit,'g C m-2 month-1' ${processed_file}_temp.nc $  {processed_file}_temp1.nc
+                    cdo muldpm -expr,'gpp=gpp*60*60*24*1000' -selyear,$year_start/$year_end -setunit,'g C m-2 month-1' $in_file ${processed_file}_temp1.nc
 
                     #Replace negative GPP with zero (-O switch overwrites existing file if any)
                     ncap2 -s 'where(gpp < 0) gpp=0' -O ${processed_file}_temp1.nc $out_file
 
-
-                    rm ${processed_file}_temp.nc
                     rm ${processed_file}_temp1.nc
 
                 fi
@@ -349,25 +340,18 @@ do
                     rm $out_file #remove in case exists, copy will fail otherwise
                     cp -s ${IN_DIR}/../Files_to_replace_corrupted/nee_Lmon_CMCC-CESM_historical_r1i1p1_1901-2004_v20140417_manually_fixed_monthly_total.nc ${processed_file}_temp.nc
 
-
                     #Select appropriate years
                     cdo selyear,$year_start/$year_end ${processed_file}_temp.nc $out_file
-
-                    rm ${processed_file}_temp.nc
 
 
                 else
 
-                    #Mask ocean cells
-                    cdo -L div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
-
                     #Convert from kg m-2 s-1 to g C m-2 month-1, and change sign (to go from NEP to NEE)
-                    cdo muldpm -expr,'nep=nep*60*60*24*1000*(-1)' -selyear,$year_start/$year_end -setunit,'g C m-2 month-1' ${processed_file}_temp.nc ${processed_file}_temp1.nc
+                    cdo muldpm -expr,'nep=nep*60*60*24*1000*(-1)' -selyear,$year_start/$year_end -setunit,'g C m-2 month-1' $in_file ${processed_file}_temp1.nc
 
                     #Change variable name from NEP to NEE
                     cdo chname,nep,nee ${processed_file}_temp1.nc $out_file
 
-                    rm ${processed_file}_temp.nc
                     rm ${processed_file}_temp1.nc
 
                 fi
@@ -380,15 +364,12 @@ do
                 #Create output file
                 out_file="${processed_file}_mm_month_${year_start}_${year_end}_${E}.nc"
 
-                cdo -L div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
-
                 #Convert from kg m-2 s-1 to mm/month
-                cdo muldpm -expr,'mrros=mrros*60*60*24' -selyear,$year_start/$year_end -setunit,'mm/month' ${processed_file}_temp.nc ${processed_file}_temp1.nc
+                cdo muldpm -expr,'mrros=mrros*60*60*24' -selyear,$year_start/$year_end -setunit,'mm/month' $in_file ${processed_file}_temp1.nc
 
                 #Replace negative runoff with zero
                 ncap2 -s 'where(mrros < 0) mrros=0' -O ${processed_file}_temp1.nc $out_file
 
-                rm ${processed_file}_temp.nc
                 rm ${processed_file}_temp1.nc
 
 
@@ -398,15 +379,12 @@ do
                 #Create output file
                 out_file="${processed_file}_mm_month_${year_start}_${year_end}_${E}.nc"
 
-                cdo -L div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
-
                 #Convert from kg m-2 s-1 to mm/month
-                cdo muldpm -expr,'mrro=mrro*60*60*24' -selyear,$year_start/$year_end -setunit,'mm/month' ${processed_file}_temp.nc ${processed_file}_temp1.nc
+                cdo muldpm -expr,'mrro=mrro*60*60*24' -selyear,$year_start/$year_end -setunit,'mm/month' $in_file ${processed_file}_temp1.nc
 
                 #Replace negative runoff with zero
                 ncap2 -s 'where(mrro < 0) mrro=0' -O ${processed_file}_temp1.nc $out_file
 
-                rm ${processed_file}_temp.nc
                 rm ${processed_file}_temp1.nc
 
 
@@ -417,14 +395,8 @@ do
                 #Create output file
                 out_file="${processed_file}_deg_C_${year_start}_${year_end}_${E}.nc"
 
-                #Mask ocean cells
-                cdo -L div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
-
                 #Convert Kelvin to Celsius (change unit, average to monthly, select years and convert to C)
-                cdo expr,'tasmax=tasmax-273.15' -selyear,$year_start/$year_end -monmean -setunit,'degrees C' ${processed_file}_temp.nc $out_file
-
-                rm ${processed_file}_temp.nc
-
+                cdo expr,'tasmax=tasmax-273.15' -selyear,$year_start/$year_end -monmean -setunit,'degrees C' $in_file $out_file
 
 
             ###--- Daily precip ---###
@@ -433,14 +405,8 @@ do
                 #Create output file
                 out_file="${processed_file}_mm_day_${year_start}_${year_end}_${E}.nc"
 
-                #Mask ocean cells
-                cdo -L div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
-
                 #Convert Kelvin to Celsius (change unit, average to monthly, select years and convert to C)
-                cdo expr,'pr=pr*60*60*24' -selyear,$year_start/$year_end -setunit,'mm/day' ${processed_file}_temp.nc $out_file
-
-                rm ${processed_file}_temp.nc
-                
+                cdo expr,'pr=pr*60*60*24' -selyear,$year_start/$year_end -setunit,'mm/day' $in_file $out_file                
                 
 
             ###--- All other variables ---###
@@ -449,24 +415,28 @@ do
                 #Create output file
                 out_file="${processed_file}_${year_start}_${year_end}_${E}.nc"
 
-                #Mask ocean cells
-                cdo -L div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
-
                 #Select years
-                cdo selyear,$year_start/$year_end ${processed_file}_temp.nc $out_file
+                cdo selyear,$year_start/$year_end $in_file $out_file
 
-                #Remove temporary file
-                rm ${processed_file}_temp.nc
 
             fi
 
+
+            ### Tidy up ###
+            
+            #Remove temp files
+            temp_files=`find ${processed_path} -name *temp.nc`
+            if [[ -e $temp_files ]]; then rm $temp_files; fi
+            
+            #Remove merged files
+            merged_files=`find ${processed_path} -name Merged_*.nc`
+            if [[ -e $merged_files ]]; then rm $merged_files; fi
 
             #Remove fixed GFDL mask file created earlier
-            if [[ $M =~ "GFDL" ]]; then  
-                rm $new_mask_file
-            fi
+            if [[ $M =~ "GFDL" ]]; then rm $new_mask_file; fi
             
-                
+              
+                              
             ###################################################################
             ###--- Regrid output file from Pacific- to Greenwich-central ---###
             ###################################################################
@@ -520,6 +490,8 @@ do
 			      #Remove non-regridded file and merged time file
 			      rm $out_file
 
+
+
             ###########################################
             ###--- Data quality and error checks ---###
             ###########################################
@@ -536,66 +508,64 @@ do
 
 
             #Calculate and save variable global mean. Use to check that variables are not corrupted
-            #(mean not properly calculated, doesn't weight cells by area. Only for guidance)
             check_dir="${OUT_DIR}/Data_checks/${E}/${var_short}/Global_mean/"
             mkdir -p $check_dir
 			      cdo fldmean $outfile_regrid ${check_dir}/${M}_global_mean_${var_short}.nc
 
 
-
             
-                    ##############################
-                    ###--- Data check cont. ---###
-                    ##############################
+            ##############################
+            ###--- Data check cont. ---###
+            ##############################
 
-                    #Plot monthly mean of variable in all models (for regridded files)
-                    #Used to check no errors have occurred during processing (or that original file is not corrupted)
+            #Plot monthly mean of variable in all models (for regridded files)
+            #Used to check no errors have occurred during processing (or that original file is not corrupted)
 
-                    plot_dir="${OUT_DIR}/Data_checks/Plots/${M}/"
-                    mkdir -p $plot_dir
+            plot_dir="${OUT_DIR}/Data_checks/Plots/${M}/"
+            mkdir -p $plot_dir
 
-                    #Create R script for plotting
-                    cat > R_plot.R << EOF
-                    library(raster)
-                    library(ncdf4)
-
-
-                    ### Map of first time slice ###
-                    files_regrid <- list.files(path="${OUT_DIR}/${E}/${var_short}/${M}/", recursive=TRUE, 
-                                               pattern="regrid.nc", full.names=TRUE)    #regridded
-                                               
-                    data_regrid <- lapply(files_regrid, brick, stopIfNotEqualSpaced=FALSE)
+            #Create R script for plotting
+            cat > R_plot.R << EOF
+            library(raster)
+            library(ncdf4)
 
 
-                    pdf("${plot_dir}/${var_short}_${E}_${M}_monthly_mean_regridded.pdf", 
-                        height=5, width=8)
-                    par(mai=c(0.2,0.2,0.2,0.6))
-                    par(mfcol=c(ceiling(sqrt(length(data_regrid))), ceiling(sqrt(length(data_regrid)))))
-                    lapply(data_regrid, function(x) plot(mean(x), ylab="", xlab="", yaxt="n", xaxt="n"))
-                    dev.off()
+            ### Map of first time slice ###
+            files_regrid <- list.files(path="${OUT_DIR}/${E}/${var_short}/${M}/", recursive=TRUE, 
+                                       pattern="regrid.nc", full.names=TRUE)    #regridded
+                                       
+            data_regrid <- lapply(files_regrid, brick, stopIfNotEqualSpaced=FALSE)
 
 
-                		### Global mean time series ###
-                		files_mean <- list.files(path="${check_dir}", recursive=TRUE, 
-                                             pattern="${M}_global_mean", full.names=TRUE)
+            pdf("${plot_dir}/${var_short}_${E}_${M}_monthly_mean_regridded.pdf", 
+                height=5, width=8)
+            par(mai=c(0.2,0.2,0.2,0.6))
+            par(mfcol=c(ceiling(sqrt(length(data_regrid))), ceiling(sqrt(length(data_regrid)))))
+            lapply(data_regrid, function(x) plot(mean(x), ylab="", xlab="", yaxt="n", xaxt="n"))
+            dev.off()
 
-                		nc_handles <- lapply(files_mean, nc_open)
-                		nc_data    <- lapply(nc_handles, ncvar_get, varid="${var_short}")
 
-                		pdf("${plot_dir}/${var_short}_${E}_${M}_global_mean_timeseries.pdf", 
-                        height=13, width=40)
-                		par(mai=c(0.2,0.2,0.2,0.6))
-                		par(mfcol=c(ceiling(sqrt(length(nc_data))), ceiling(sqrt(length(nc_data)))))
-                		lapply(nc_data, function(x) plot(x, type="l", col="blue", ylab="", xlab="", 
-                           yaxt="n", xaxt="n"))
-                		dev.off()
+        		### Global mean time series ###
+        		files_mean <- list.files(path="${check_dir}", recursive=TRUE, 
+                                     pattern="${M}_global_mean", full.names=TRUE)
+
+        		nc_handles <- lapply(files_mean, nc_open)
+        		nc_data    <- lapply(nc_handles, ncvar_get, varid="${var_short}")
+
+        		pdf("${plot_dir}/${var_short}_${E}_${M}_global_mean_timeseries.pdf", 
+                height=13, width=40)
+        		par(mai=c(0.2,0.2,0.2,0.6))
+        		par(mfcol=c(ceiling(sqrt(length(nc_data))), ceiling(sqrt(length(nc_data)))))
+        		lapply(nc_data, function(x) plot(x, type="l", col="blue", ylab="", xlab="", 
+                   yaxt="n", xaxt="n"))
+        		dev.off()
 
 
 EOF
 
-                    #Run script and remove afterwards
-                    Rscript R_plot.R
-                    rm R_plot.R
+            #Run script and remove afterwards
+            Rscript R_plot.R
+            rm R_plot.R
 
 
         done #models
