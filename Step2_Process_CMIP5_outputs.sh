@@ -510,6 +510,11 @@ do
             #Calculate and save variable global mean. Use to check that variables are not corrupted
             check_dir="${OUT_DIR}/Data_checks/${E}/${var_short}/Global_mean/"
             mkdir -p $check_dir
+            
+            #The python script (fix_lon.py) resaves the file with a different name (setgrid*)
+            #Use this when calculating global mean
+            outfile_setgrid=${out_file%".nc"}"_regrid_setgrid.nc"
+            
 			      cdo fldmean $outfile_regrid ${check_dir}/${M}_global_mean_${var_short}.nc
 
 
@@ -532,7 +537,7 @@ do
 
             ### Map of first time slice ###
             files_regrid <- list.files(path="${OUT_DIR}/${E}/${var_short}/${M}/", recursive=TRUE, 
-                                       pattern="regrid.nc", full.names=TRUE)    #regridded
+                                       pattern="setgrid.nc", full.names=TRUE)    #regridded
                                        
             data_regrid <- lapply(files_regrid, brick, stopIfNotEqualSpaced=FALSE)
 
