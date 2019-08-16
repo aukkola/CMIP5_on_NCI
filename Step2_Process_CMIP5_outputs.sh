@@ -18,7 +18,7 @@
 # 4) python with package pandas
 
 
-# Code processes monthly CMIP5 outputs
+# Code processes monthly CMIP5/CMIP6 outputs
 # i) merges all years into one file (when applicable),
 # ii) converts required variables to desired units,
 # iii) extracts desired time period
@@ -34,10 +34,6 @@
 # If no mask available, model is skipped
 
 
-# WARNING !!!!! : manually handles CMCC-CESM gpp and nep data, setting a 
-#                 symbolic link to a manually corrected file
-
-
 
 module load cdo
 module load nco
@@ -49,16 +45,12 @@ source activate /home/561/amu561/miniconda2
 
 
 
-
 ####################
 ### 1. SET PATHS ###
 ####################
 
-#Outdir folder used in Step 1
-IN_DIR="/g/data1/w35/amu561/CMIP5_testing/CMIP5_Data"
-
-#Desired output folder
-OUT_DIR="/g/data1/w35/amu561/CMIP5_testing/Processed_CMIP5_data/"
+#Direcotry for storing processed datasets
+DIR="/g/data1/w35/amu561/CMIP6_drought/CMIP6_Data"
 
 
 
@@ -66,17 +58,70 @@ OUT_DIR="/g/data1/w35/amu561/CMIP5_testing/Processed_CMIP5_data/"
 ### 2. SET OPTIONS ###
 ######################
 
+dataset="cmip6"
+
+#Clef search with options for models, experiments, variables etc.
+# search_criteria="--local $dataset --experiment historical --experiment ssp585 \
+#                  --experiment ssp245 --variable mrro --variable mrros \
+#                  --variable pr --table Lmon --table Amon"
+
+
+#for testing DELETE LATER
+search_criteria="--local $dataset --experiment historical --variable mrro --table Lmon"
+
+
 #Set start and end year 
-year_start=1950
-year_end=2050
+year_start=1850
+year_end=2100
+
 
 #Mask oceans? Set to true (masking) or false (no masking). If set to true and no
 #mask is found, the model and variable is skipped.
 mask_oceans=true
 
 
-
 #-------------------------------------------------------------------------------
+
+#end of user defined settings
+
+
+####################
+### Create PATHS ###
+####################
+
+
+#Directory for saving symbolic links to original data
+IN_DIR=$DIR"/CMIP6_Data"
+mkdir -p $IN_DIR
+
+#Directory for processed folder
+OUT_DIR=$DIR"/Processed_CMIP6_data/"
+mkdir -p $OUT_DIR
+
+#Temporary directory for storing interim search results
+TEMP_DIR=$DIR"/temp_res"
+mkdir -p $TEMP_DIR
+
+
+
+######################################
+### Search database to find models ###
+######################################
+
+#Search database to find all available data
+clef $search_criteria >> $TEMP_DIR/"cmip6_clef_search_results.csv"
+
+#Filter search results to find common models and ensemble members
+
+
+Rscript 
+
+
+
+########################
+### Process datasets ###
+########################
+
 
 #Find experiments
 experiments=`ls $IN_DIR`
@@ -199,31 +244,31 @@ do
             ###############################################################
 
 
-            #GFDL mask files have multiple variables, need to extract "sftlt"
-            #or the division below fails.
-            if [[ $M =~ "GFDL" ]]; then
-              
-                #Create file name for fixed file
-                new_mask_file=${mask_file}"_${var_short}_fixed.nc"
-                
-                #Select variable sftlf
-                cdo -L selname,'sftlf' $mask_file $new_mask_file
-                
-                #Replace mask file with new file
-                mask_file=$new_mask_file
-                
-                
-                #Also fix $in_file, has an extra variable
-                fixed_in_file=${in_file}"_fixed.nc"
-                
-                #Select variable being processed
-                cdo -L selname,$var_short $in_file $fixed_in_file
-                
-                #Remove old $in_file and replace with new fixed file
-                rm $in_file
-                in_file=$fixed_in_file
-            fi
-            
+            # #GFDL mask files have multiple variables, need to extract "sftlt"
+            # #or the division below fails.
+            # if [[ $M =~ "GFDL" ]]; then
+            # 
+            #     #Create file name for fixed file
+            #     new_mask_file=${mask_file}"_${var_short}_fixed.nc"
+            # 
+            #     #Select variable sftlf
+            #     cdo -L selname,'sftlf' $mask_file $new_mask_file
+            # 
+            #     #Replace mask file with new file
+            #     mask_file=$new_mask_file
+            # 
+            # 
+            #     #Also fix $in_file, has an extra variable
+            #     fixed_in_file=${in_file}"_fixed.nc"
+            # 
+            #     #Select variable being processed
+            #     cdo -L selname,$var_short $in_file $fixed_in_file
+            # 
+            #     #Remove old $in_file and replace with new fixed file
+            #     rm $in_file
+            #     in_file=$fixed_in_file
+            # fi
+            # 
             
             
             #Create output file name (complete when running each cdo command)
@@ -233,6 +278,8 @@ do
             #########################
             ### Process variables ###
             #########################
+            
+            ###--- Mask oceans ---###
             
             
             #First mask for oceans if this option was selected
@@ -245,7 +292,32 @@ do
               in_file=${processed_file}_temp.nc
               
             fi
-                  
+              
+              
+          ###--- Select years ---###
+          
+          #Check that wanted years exist in files 
+          years=(`cdo showyear $in_file`)
+
+
+
+
+          #find first and last years 
+          `echo ${years[0]}`
+          
+          `echo ${years[${#years[@]} - 1]}
+
+          
+          #If time period in file shorter, stop 
+            
+          
+          #
+          #Select years
+          cdo selyear,$year_start/$year_end $in_file $out_file
+  
+          infile=
+          
+          
             
 
             ###--- Air temperature ---###
@@ -255,31 +327,17 @@ do
                 out_file="${processed_file}_deg_C_${year_start}_${year_end}_${E}.nc"
 
                 #Convert Kelvin to Celsius
-                cdo expr,'tas=tas-273.15' -selyear,$year_start/$year_end -setunit,'degrees C' $in_file $out_file
+                cdo expr,'tas=tas-273.15' -setunit,'degrees C' $in_file $out_file
 
 
             ###--- Evapotranspiration ---###
             elif [[ $V =~ "Amon/evspsbl" ]]; then
 
-
                 #Create output file
                 out_file="${processed_file}_mm_month_${year_start}_${year_end}_${E}.nc"
 
-
-                #These models have ET 1000 times too high, divide ET to fix (see CMIP errata, https://pcmdi.llnl.gov/mips/cmip5/errata.html)
-                if [[ $M =~ "NorESM1-M" ]]; then
-                    #Convert from kg m-2 s-1 to mm/month, and divide by 1000 to fix corrupted file
-                    cdo -L muldpm -expr,'evspsbl=evspsbl*60*60*24/1000' -selyear,$year_start/$year_end -setunit,'mm/month' $in_file $out_file
-
-                #This model has wrong ET sign (negative ET), change sign by multiplying with -1
-                elif [[ $M =~ "CMCC-C" ]]; then
-                    cdo -L muldpm -expr,'evspsbl=evspsbl*60*60*24*(-1)' -selyear,$year_start/$year_end -setunit,'mm/month' $in_file $out_file
-
-                else
-                    #Convert from kg m-2 s-1 to mm/month
-                    cdo -L muldpm -expr,'evspsbl=evspsbl*60*60*24' -selyear,$year_start/$year_end -setunit,'mm/month' $in_file $out_file
-                fi
-
+                #Convert from kg m-2 s-1 to mm/month
+                cdo -L muldpm -expr,'evspsbl=evspsbl*60*60*24' -setunit,'mm/month' $in_file $out_file
 
 
             ###--- Precipitation ---###
@@ -289,7 +347,7 @@ do
                 out_file="${processed_file}_mm_month_${year_start}_${year_end}_${E}.nc"
 
                 #Convert from kg m-2 s-1 to mm/month
-                cdo muldpm -expr,'pr=pr*60*60*24' -selyear,$year_start/$year_end -setunit,'mm/month' $in_file ${processed_file}_temp1.nc
+                cdo muldpm -expr,'pr=pr*60*60*24' -setunit,'mm/month' $in_file ${processed_file}_temp1.nc
 
                 #Replace negative rainfall with zero
                 ncap2 -s 'where(pr < 0) pr=0' -O ${processed_file}_temp1.nc $out_file
@@ -302,28 +360,14 @@ do
 
                 #Create output file
                 out_file="${processed_file}_gC_m2_month_${year_start}_${year_end}_${E}.nc"
+    
+                #Convert from kg m-2 s-1 to g C m-2 month-1
+                cdo muldpm -expr,'gpp=gpp*60*60*24*1000' -setunit,'g C m-2 month-1' $in_file ${processed_file}_temp1.nc
 
+                #Replace negative GPP with zero (-O switch overwrites existing file if any)
+                ncap2 -s 'where(gpp < 0) gpp=0' -O ${processed_file}_temp1.nc $out_file
 
-                #If CMCC model, link to a manually corrected file (output corrupted)
-                if [[ $M =~ "CMCC-CESM" ]]; then
-
-                    rm $out_file #remove in case exists, copy will fail otherwise
-                    cp -s ${IN_DIR}/../Files_to_replace_corrupted/gpp_Lmon_CMCC-CESM_historical_r1i1p1_1901-2004_v20140417_manually_fixed_monthly_total.nc ${processed_file}_temp.nc
-
-                    #Select appropriate years
-                    cdo selyear,$year_start/$year_end ${processed_file}_temp.nc $out_file
-
-                else
-
-                    #Convert from kg m-2 s-1 to g C m-2 month-1
-                    cdo muldpm -expr,'gpp=gpp*60*60*24*1000' -selyear,$year_start/$year_end -setunit,'g C m-2 month-1' $in_file ${processed_file}_temp1.nc
-
-                    #Replace negative GPP with zero (-O switch overwrites existing file if any)
-                    ncap2 -s 'where(gpp < 0) gpp=0' -O ${processed_file}_temp1.nc $out_file
-
-                    rm ${processed_file}_temp1.nc
-
-                fi
+                rm ${processed_file}_temp1.nc
 
 
             ###--- Net ecosystem exchange ---###
@@ -333,29 +377,15 @@ do
                 #Create output file
                 out_file="${processed_file}_gC_m2_month_${year_start}_${year_end}_${E}.nc"
 
+                #Convert from kg m-2 s-1 to g C m-2 month-1, and change sign (to go from NEP to NEE)
+                cdo muldpm -expr,'nep=nep*60*60*24*1000*(-1)' -setunit,'g C m-2 month-1' $in_file ${processed_file}_temp1.nc
 
-                #If CMCC model, link to a manually corrected file (output corrupted)
-                if [[ $M =~ "CMCC-CESM" ]]; then
+                #Change variable name from NEP to NEE
+                cdo chname,nep,nee ${processed_file}_temp1.nc $out_file
 
-                    rm $out_file #remove in case exists, copy will fail otherwise
-                    cp -s ${IN_DIR}/../Files_to_replace_corrupted/nee_Lmon_CMCC-CESM_historical_r1i1p1_1901-2004_v20140417_manually_fixed_monthly_total.nc ${processed_file}_temp.nc
+                rm ${processed_file}_temp1.nc
 
-                    #Select appropriate years
-                    cdo selyear,$year_start/$year_end ${processed_file}_temp.nc $out_file
-
-
-                else
-
-                    #Convert from kg m-2 s-1 to g C m-2 month-1, and change sign (to go from NEP to NEE)
-                    cdo muldpm -expr,'nep=nep*60*60*24*1000*(-1)' -selyear,$year_start/$year_end -setunit,'g C m-2 month-1' $in_file ${processed_file}_temp1.nc
-
-                    #Change variable name from NEP to NEE
-                    cdo chname,nep,nee ${processed_file}_temp1.nc $out_file
-
-                    rm ${processed_file}_temp1.nc
-
-                fi
-
+  
 
             ###--- Surface runoff ---###
             #Important: have mrros before mrro or code will use mrro (because of if argument V "contains" mrro)
@@ -365,7 +395,7 @@ do
                 out_file="${processed_file}_mm_month_${year_start}_${year_end}_${E}.nc"
 
                 #Convert from kg m-2 s-1 to mm/month
-                cdo muldpm -expr,'mrros=mrros*60*60*24' -selyear,$year_start/$year_end -setunit,'mm/month' $in_file ${processed_file}_temp1.nc
+                cdo muldpm -expr,'mrros=mrros*60*60*24' -setunit,'mm/month' $in_file ${processed_file}_temp1.nc
 
                 #Replace negative runoff with zero
                 ncap2 -s 'where(mrros < 0) mrros=0' -O ${processed_file}_temp1.nc $out_file
@@ -380,7 +410,7 @@ do
                 out_file="${processed_file}_mm_month_${year_start}_${year_end}_${E}.nc"
 
                 #Convert from kg m-2 s-1 to mm/month
-                cdo muldpm -expr,'mrro=mrro*60*60*24' -selyear,$year_start/$year_end -setunit,'mm/month' $in_file ${processed_file}_temp1.nc
+                cdo muldpm -expr,'mrro=mrro*60*60*24' -setunit,'mm/month' $in_file ${processed_file}_temp1.nc
 
                 #Replace negative runoff with zero
                 ncap2 -s 'where(mrro < 0) mrro=0' -O ${processed_file}_temp1.nc $out_file
@@ -396,7 +426,7 @@ do
                 out_file="${processed_file}_deg_C_${year_start}_${year_end}_${E}.nc"
 
                 #Convert Kelvin to Celsius (change unit, average to monthly, select years and convert to C)
-                cdo expr,'tasmax=tasmax-273.15' -selyear,$year_start/$year_end -monmean -setunit,'degrees C' $in_file $out_file
+                cdo expr,'tasmax=tasmax-273.15' -monmean -setunit,'degrees C' $in_file $out_file
 
 
             ###--- Daily precip ---###
@@ -406,7 +436,7 @@ do
                 out_file="${processed_file}_mm_day_${year_start}_${year_end}_${E}.nc"
 
                 #Convert Kelvin to Celsius (change unit, average to monthly, select years and convert to C)
-                cdo expr,'pr=pr*60*60*24' -selyear,$year_start/$year_end -setunit,'mm/day' $in_file $out_file                
+                cdo expr,'pr=pr*60*60*24' -setunit,'mm/day' $in_file $out_file                
                 
 
             ###--- All other variables ---###
@@ -415,9 +445,8 @@ do
                 #Create output file
                 out_file="${processed_file}_${year_start}_${year_end}_${E}.nc"
 
-                #Select years
-                cdo selyear,$year_start/$year_end $in_file $out_file
-
+                mv $in_file $out_file
+                
 
             fi
 
@@ -444,48 +473,18 @@ do
             # Modify output file name
             outfile_regrid=${out_file%".nc"}"_regrid.nc"
 
+		        #Regrid using CDO sellonlatbox (note this adjusts lon variable
+            #to range [-180, 180] but not lon_bounds)
+		        cdo sellonlatbox,-180,180,-90,90 $out_file $outfile_regrid
 
-            #If CMCC model, link to a manually corrected file (output corrupted)
-            if [[ $M =~ "CMCC-CESM" && $V =~ "Lmon/gpp" ]]
-            then
+            #Above CDO command doesn't fix lon_bounds, using a python
+            #script to fix these (provided by Arden)
+            python fix_lon.py "${outfile_regrid}"
 
-                rm $outfile_regrid #remove in case exists, copy will fail otherwise
-                cp -s ${IN_DIR}/../Files_to_replace_corrupted/gpp_Lmon_CMCC-CESM_historical_r1i1p1_1901-2004_v20140417_manually_fixed_monthly_total_regrid.nc ${out_file%".nc"}"_temp.nc"
+		        #Remove temp file if cropping
+		        #rm $outfile_temp
 
-                #Select years
-                cdo selyear,$year_start/$year_end ${out_file%".nc"}"_temp.nc" $outfile_regrid
-
-                rm ${out_file%".nc"}"_temp.nc"
-
-            #CMCC-CESM NEP output
-            elif [[ $M =~ "CMCC-CESM" && $V =~ "Lmon/nep" ]]
-            then
-
-                rm $outfile_regrid #remove in case exists, copy will fail otherwise
-                cp -s ${IN_DIR}/../Files_to_replace_corrupted/nee_Lmon_CMCC-CESM_historical_r1i1p1_1901-2004_v20140417_manually_fixed_monthly_total_regrid.nc {out_file%".nc"}"_temp.nc"
-
-                #Select years
-                cdo selyear,$year_start/$year_end ${out_file%".nc"}"_temp.nc" $outfile_regrid
-
-                rm ${out_file%".nc"}"_temp.nc"
-
-
-            #All other models
-            else
-
-
-				        #Regrid using CDO sellonlatbox (note this adjusts lon variable
-                #to range [-180, 180] but not lon_bounds)
-				        cdo sellonlatbox,-180,180,-90,90 $out_file $outfile_regrid
-
-                #Above CDO command doesn't fix lon_bounds, using a python
-                #script to fix these (provided by Arden)
-                python fix_lon.py "${outfile_regrid}"
-
-				        #Remove temp file if cropping
-				        #rm $outfile_temp
-
-            fi
+            
 
 			      #Remove non-regridded file and merged time file
 			      rm $out_file
