@@ -38,6 +38,8 @@ dir_name <- "historical_rcp4.5"
 #Retrieves land masks for selected models 
 get_land_masks <- TRUE
 
+#name of land mask variable
+mask_var  <- "sftlf"
 
 
 #------------------------------------------------------------------------------
@@ -92,6 +94,24 @@ sorted_results$time_resolution <- sapply(all_res, function(x) x[12])
 #Get paths
 sorted_results$path <- results[,1]
 
+
+
+#Split mask variable from results
+
+if (get_land_masks) {
+  
+  mask_ind <- which(sorted_results$variable == mask_var)
+  
+  #Get mask results
+  mask_results <- sorted_results[mask_ind,]
+    
+  #And the rest
+  sorted_results <- sorted_results[-mask_ind,]
+  
+}
+ 
+  
+  
 
 
 ##########################
@@ -321,12 +341,57 @@ for (k in 1:nrow(final_results)) {
 
 
 
-# 
-# #########################################
-# ### Retrieve corresponding land masks ###
-# #########################################
-# 
-# 
+
+#########################################
+### Retrieve corresponding land masks ###
+#########################################
+
+
+for (k in 1:length(common_models)) {
+  
+  
+  
+  
+  
+  
+  
+  
+  
+}
+
+    #Not saving these separately for each experiment at this stage,
+    #Should probably be changed later
+
+    #If saving to same directory
+    if (combine) {
+      #Create output directory
+      target_dir <- paste(outdir, "/Land_masks",
+                          final_models_mask$model[k], sep="/")
+
+    #Else
+    } else {
+      #Create output directory
+      target_dir <- paste(outdir,  "/Land_masks",
+                          final_models_mask$model[k], sep="/")
+    }
+
+    dir.create(target_dir, recursive=TRUE, showWarnings = FALSE)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # if (get_land_masks) {
 #   
 #   #Mask variable name

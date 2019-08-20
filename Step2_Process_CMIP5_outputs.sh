@@ -202,7 +202,7 @@ do
             if $mask_oceans; then
               
               #Find land mask file
-              mask_file=`find ${IN_DIR}/../Processed_masks/${E}/${M}/ -name "*${M}*.nc"`
+              mask_file=`find ${IN_DIR}/Land_masks/${M}/ -name "*${M}*.nc"`
 
               #If couldn't find mask file, skip model
               if [[ -z $mask_file ]]; then
