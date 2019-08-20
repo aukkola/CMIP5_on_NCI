@@ -39,6 +39,9 @@ module load cdo
 module load nco
 module load R
 
+module use /g/data3/hh5/public/modules
+module load conda/analysis3-unstable
+
 #This needs fixing on raijin, have to load miniconda to use pandas
 source activate /home/561/amu561/miniconda2
 #module load python
@@ -61,13 +64,14 @@ DIR="/g/data1/w35/amu561/CMIP6_drought/CMIP6_Data"
 dataset="cmip6"
 
 #Clef search with options for models, experiments, variables etc.
-# search_criteria="--local $dataset --experiment historical --experiment ssp585 \
-#                  --experiment ssp245 --variable mrro --variable mrros \
-#                  --variable pr --table Lmon --table Amon"
+search_criteria="--local $dataset --experiment historical --experiment ssp585 \
+                 --experiment ssp245 --variable mrro --variable mrros \
+                 --variable pr --variable sftlf --table fx \
+                  --table Lmon --table Amon"
 
 
-#for testing DELETE LATER
-search_criteria="--local $dataset --experiment historical --variable mrro --table Lmon"
+###for testing DELETE LATER
+#search_criteria="--local $dataset --experiment historical --variable mrro --variable mrros --table Lmon"
 
 
 #Set start and end year 
@@ -91,7 +95,7 @@ mask_oceans=true
 
 
 #Directory for saving symbolic links to original data
-IN_DIR=$DIR"/CMIP6_Data"
+IN_DIR=$DIR"/Raw_CMIP6_data"
 mkdir -p $IN_DIR
 
 #Directory for processed folder
@@ -109,12 +113,24 @@ mkdir -p $TEMP_DIR
 ######################################
 
 #Search database to find all available data
-clef $search_criteria >> $TEMP_DIR/"cmip6_clef_search_results.csv"
+
+#File where to save search results
+in_file=$TEMP_DIR/"cmip6_clef_search_results.csv"
+
+#Remove this file if it exists, otherwise new results will be appended to it
+if [[ -f "$in_file" ]]; then rm $in_file; fi
+
+
+#Perform Clef search
+clef $search_criteria >> $in_file
+
 
 #Filter search results to find common models and ensemble members
+#TODO: need to pass file paths to R on the command line so don't need to set in R file !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#options that need to be passed: mask_oceans, in_file, IN_DIR, combine experiements or not
 
+Rscript "Find_${dataset}_models_matching_criteria.R"
 
-Rscript 
 
 
 
