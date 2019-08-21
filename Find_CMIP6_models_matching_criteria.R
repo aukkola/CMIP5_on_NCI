@@ -334,7 +334,7 @@ for (k in 1:nrow(final_results)) {
   #var names to be returned)
 
   file.symlink(from=list.files(entry$path, full.names=TRUE, 
-                               pattern=paste0(entry$variable, "_")), 
+               pattern=paste0(entry$variable, "_")), 
                to=target_dir)
   
 }
@@ -350,261 +350,115 @@ for (k in 1:nrow(final_results)) {
 for (k in 1:length(common_models)) {
   
   
+  #Extract results for model
+  mod_res <- mask_results[which(mask_results$model == common_models[k]), ]
   
   
-  
-  
-  
-  
-  
-}
-
+  #If found results, copy file
+  if (nrow(mod_res) > 0) {
+    
+    
+    ### Check for duplicate versions ###
+    
+    #Check if any experiment/ensemble/variable combo duplicated
+    
+    #Variables to match
+    mod_match <- mod_res[,c("experiment", "ensemble", "variable")]
+    
+    #Find duplicates
+    vr_ind <- which(duplicated(mod_match))
+    
+    #If found dupcliates, only get latest version
+    if (length(vr_ind) > 0) {
+      
+      rm_ind <- vector()
+      
+      for (v in 1:length(vr_ind)) {
+        
+        #Finds rows that are duplicates
+        common_ind <- which(apply(mod_match, MARGIN=1, function(x) all(x == mod_match[vr_ind[v],])))
+        
+        #Check which one of these is the newest version
+        #(remove "v" from start, convert to numeric and find biggest)
+        max_ind <- which.max(as.numeric(substr(final_results$version[common_ind], 2, 9)))
+        
+        
+        rm_ind <- append(rm_ind, common_ind[-max_ind])
+        
+      }
+      
+      #Remove all old versions
+      mod_res <- mod_res[-rm_ind,]
+      
+    }
+    
+    
+    
+    ### Copy files ###
+    
     #Not saving these separately for each experiment at this stage,
     #Should probably be changed later
-
+    
     #If saving to same directory
     if (combine) {
       #Create output directory
-      target_dir <- paste(outdir, "/Land_masks",
-                          final_models_mask$model[k], sep="/")
-
-    #Else
+      target_dir <- paste(outdir, "/../Land_masks/", mod_res$model[1], sep="/")
+      
+      #Else
     } else {
       #Create output directory
-      target_dir <- paste(outdir,  "/Land_masks",
-                          final_models_mask$model[k], sep="/")
+      target_dir <- paste(outdir,  "/../Land_masks/", mod_res$model[1], sep="/")
     }
-
+    
     dir.create(target_dir, recursive=TRUE, showWarnings = FALSE)
+    
+    
+    #Loop through files
+    for (f in 1:nrow(mod_res)) {
+      
+      #Basic sanity checks:
+      #Check that path contains correct model, variable and experiment  
+ 
+      #Extract data for this iteration
+      entry <- mod_res[f,]
+      
+      
+      #Model check
+      if (!grepl(entry$model, entry$path)) {
+        stop("File path doesn't contain correct model")
+      } 
+      #Variable check
+      if (!grepl(entry$variable, entry$path)) {
+        stop("File path doesn't contain correct variable")
+      }
+      
+      
+      #Experiment check
+      if (!grepl(entry$experiment, entry$path)) {
+        stop("File path doesn't contain correct experiment")
+      }
+      
+      
+      
+      #Create symbolic link to file (need to add pattern because some models 
+      #will otherwise return surplus variables. Also adding "_" to avoid similar 
+      #var names to be returned)
+      
+      file.symlink(from=list.files(entry$path, full.names=TRUE, 
+                   pattern=paste0(entry$variable, "_")), 
+                   to=target_dir)
+      
+      
+      
+      
+      
+    }
+    
+    
+    
+    
+  } #if found files 
+  
+} #models
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# if (get_land_masks) {
-#   
-#   #Mask variable name
-#   mask_var  <- "sftlf"
-#   
-#   #Create string for selected models
-#   mod_str <- paste(paste("'", unique(final_models$model), "'", sep=""), collapse=",")
-#   
-#   
-#   #Create query string (only use first experiment if combining experiments)
-#   if (combine) {
-#     mask_query <- paste("SELECT * FROM instances WHERE experiment in ('", experiment[1], 
-#                         "') and variable in ('", mask_var, "') and model in (",
-#                         mod_str, ") and ensemble in ('r0i0p0')", sep="")
-#     
-#   } else {
-#     mask_query <- paste("SELECT * FROM instances WHERE experiment in (", exp_str, 
-#                         ") and variable in ('", mask_var, "') and model in (",
-#                         mod_str, ") and ensemble in ('r0i0p0')", sep="")
-#   }
-#   
-#   
-#   #Perform query
-#   mask_results <- dbGetQuery(con, mask_query)
-#   
-#   
-#   
-#   ### Find paths for masks ###
-#   
-#   instances <- mask_results$instance_id
-#   
-#   #Create string
-#   inst_str    <- paste("(", paste(instances, collapse=","), ")", sep="")
-#   query_final <- paste("SELECT * FROM versions WHERE instance_id in", inst_str)
-#   
-#   mask_paths <- dbGetQuery(con, query_final)
-#   
-#   
-#   
-#   ############################
-#   ### Select file versions ###
-#   ############################
-#   
-#   
-#   versions <- vector()
-#   
-#   for (k in 1:length(instances)) {
-#     
-#     #Find indices for instance
-#     ind <- which(mask_paths$instance_id==instances[k])
-#     
-#     #Extract all results
-#     all_versions <- mask_paths[ind,]
-#     
-#     #If only one version, use that
-#     if (nrow(all_versions)==1) {
-#       
-#       versions[k] <- all_versions$version_id
-#       
-#       #If multiple versions, find newest
-#     } else {
-#       
-#       #Find latest  
-#       latest <- which(all_versions$is_latest==1)
-#       
-#       
-#       #Found one latest, use that
-#       if (length(latest)==1) {
-#         
-#         versions[k] <- all_versions$version_id[latest]
-#         
-#         #Found more than one latest, compare versions
-#       } else if (length(latest)>1) {
-#         
-#         #If all versions the same, use first result
-#         if(all(all_versions$version[latest] == all_versions$version[latest[1]])){  
-#           versions[k] <- all_versions$version_id[latest[1]]
-#           
-#         } else {
-#           
-#           #Sort and pick first (=newest)
-#           
-#           stop("This bit of code needs FIXING")
-#           sorted <- sort(all_versions$version[latest], decreasing=TRUE)
-#           
-#           versions[k] <- all_versions$version[sorted[1]]
-#         }
-#         
-#         
-#         #Didn't find a latest, sort versions and pick latest
-#       } else {  
-#         
-#         #Sort decreasing
-#         sorted <- sort(all_versions$version, decreasing=TRUE)
-#         
-#         #Pick first instance and find corresponding version no.
-#         versions[k] <- all_versions$version_id[which(all_versions$version == sorted[1])[1]]
-#         
-#       }
-#     }
-#   }
-#   
-#   
-#   ### Collate final search results ###
-#   
-#   #Find versions to extract
-#   ind <- sapply(versions, function(x) which(mask_paths$version_id==x))
-#   
-#   #Extract final paths
-#   final_paths <- mask_paths[ind,]
-#   
-#   #Find instance numbers
-#   final_instances <- mask_paths$instance_id[ind]
-#   
-#   #Extract final models
-#   ind1 <- sapply(final_instances, function(x) which(mask_results$instance_id==x))
-#   final_models_mask <- mask_results[ind1,]
-#   
-#   
-#   #Check if found a mask for all models, return a warning if not
-#   common_mods <- intersect(final_models$model, final_models_mask$model)
-#   
-#   if (length(common_mods) != length(unique(final_models$model))) {
-#     
-#    not_found <- is.element(unique(final_models$model), common_mods)
-#    
-#     warning(paste("Could not find masks for models: ", 
-#                   paste(unique(final_models$model)[!not_found],
-#                   collapse=", ")))
-#   }
-#   
-#     
-#   
-#   ###########################################
-#   ### Create database of selected outputs ###
-#   ###########################################
-#   
-#   
-#   
-#   for (k in 1:nrow(final_models_mask)) {
-#     
-#     #If saving to same directory
-#     if (combine) {
-#       #Create output directory
-#       target_dir <- paste(outdir, "../Processed_masks", dir_name,
-#                           final_models_mask$model[k], sep="/")
-#       
-#     #Else
-#     } else {
-#       #Create output directory
-#       target_dir <- paste(outdir,  "../Processed_masks", final_models_mask$experiment[k], 
-#                           final_models_mask$model[k], sep="/")
-#     }
-#     
-#     dir.create(target_dir, recursive=TRUE, showWarnings = FALSE)
-#     
-#     
-#     
-#     #Basic sanity checks:
-#     #Check that path contains correct model, variable and experiment  
-#     
-#     #Need an exception for the GISS and FIO-ESM models as file path structure is different
-#     
-#     #GISS
-#     if (any(final_models_mask$model[k]==c("GISS-E2-R", "GISS-E2-H", "GISS-E2-H-CC", "GISS-E2-R-CC"))) {
-#       #Get model version
-#       ext <- strsplit(final_models_mask$model[k], "GISS-")[[1]][2]
-#       #Check
-#       if (!grepl(ext, final_paths$path[k])) {
-#         stop("File path doesn't contain correct model")
-#       }
-# 
-#       #FIO-ESM (slightly different spelling in paths)
-#     } else if (final_models_mask$model[k] == "FIO-ESM") {
-#       if (!grepl("FIO_ESM", final_paths$path[k])) {
-#         stop("File path doesn't contain correct model")
-#       }
-# 
-#       #Other models
-#     } else {
-#       #Model check
-#       if (!grepl(final_models_mask$model[k], final_paths$path[k])) {
-#         stop("File path doesn't contain correct model")
-#       } 
-#       #Variable check
-#       if (!grepl(final_models_mask$variable[k], final_paths$path[k])) {
-#         stop("File path doesn't contain correct variable")
-#       }
-#     }  
-#     
-#     #Experiment check
-#     if (!grepl(final_models_mask$experiment[k], final_paths$path[k])) {
-#       stop("File path doesn't contain correct experiment")
-#     }
-#     
-#     
-#     
-#     
-#     #Create symbolic link to file (need to add pattern because some models 
-#     #will otherwise return surplus variables. Also adding "_" to avoid similar 
-#     #var names to be returned)
-#     
-#     file.symlink(from=list.files(final_paths$path[k], full.names=TRUE, 
-#                                  pattern=paste0(final_models_mask$variable[k], "_")), 
-#                  to=target_dir)
-#     
-#   }
-#   
-#   
-#   
-# } #masks
-# 
-# 
-# 
-# 
-# 
