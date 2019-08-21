@@ -27,7 +27,7 @@ import warnings as warn
 def main(args):
 	# ========== Load in the lookup table of the CMIP5 grids ==========
 	# SOURCE: https://portal.enes.org/data/enes-model-data/cmip5/resolution
-	grids   = pd.read_csv("./CMIP5model_lookup.csv", header=0)
+	grids   = pd.read_csv("./cmip6_model_lookup.csv", header=0)
 
 	# ========== Set up the Key Infomation ==========
 	fname   = args.fname

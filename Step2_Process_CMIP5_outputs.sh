@@ -74,15 +74,11 @@ search_criteria="--local $dataset --experiment historical --experiment ssp585 \
 #search_criteria="--local $dataset --experiment historical --variable mrro --variable mrros --table Lmon"
 
 
-#Set start and end year 
-year_start=1850
-year_end=2100
-
-
 #Mask oceans? Set to true (masking) or false (no masking). If set to true and no
 #mask is found, the model and variable is skipped.
 mask_oceans=true
 
+mask_var_name="sftlf"
 
 #-------------------------------------------------------------------------------
 
@@ -127,7 +123,7 @@ clef $search_criteria >> $in_file
 
 #Filter search results to find common models and ensemble members
 #TODO: need to pass file paths to R on the command line so don't need to set in R file !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-#options that need to be passed: mask_oceans, in_file, IN_DIR, combine experiements or not
+#options that need to be passed: mask_oceans, mask name in_file, IN_DIR, combine experiements or not
 
 Rscript "Find_${dataset}_models_matching_criteria.R"
 
@@ -143,7 +139,8 @@ Rscript "Find_${dataset}_models_matching_criteria.R"
 experiments=`ls $IN_DIR`
 
 
-#Loop through experiments
+### Loop through experiments ###
+
 for E in $experiments
 do
 
@@ -155,17 +152,19 @@ do
     vars=`find ${IN_DIR}/${E} -maxdepth 2 -mindepth 2 ! -path . -type d`
 
 
-    #Loop through variables
+    ### Loop through variables ###
+    
     for V in $vars
     do
 
-
-        echo "Processing variable: ${V}"
-
         #Variable name without path (used to create output file)
         var_short=`echo "$V" | sed 's!.*/!!'`
+        
+        #Print progress
+        echo "Processing variable: ${var_short}"
 
-        #Replace nep with nee in output structure (converting NEP variable to NEE below, keeping consistent with this)
+        #Replace nep with nee in output structure
+        #(converting NEP variable to NEE below, keeping consistent with this)
         if [ $var_short == "nep" ]; then
             var_short="nee"
         fi
@@ -176,417 +175,462 @@ do
 
 
 
-        #Loop through models
+        ### Loop through models ###
+        
         for M in $models
         do
 
             echo "Processing model : ${M}"
 
             #Find ensemble name
-            ens=`ls $V/$M`
-
-            #find files for model+ensemble
-            files=`find $V/$M/$ens/*.nc`
-
-            #Determine number of files
-            no_files=`find $V/$M/$ens/*.nc | wc -l`
+            ensembles=`ls $V/$M`
 
 
-            #Input file to cdo functions (replaced below if files need merging)
-            in_file=$files
-            
-            
-            #If selected to mask oceans, first check if can find a land mask file
-            #if not, skip model
-  
-            if $mask_oceans; then
+            ### Loop through ensemble members ###
+
+            for ens in $ensembles
+            do
               
-              #Find land mask file
-              mask_file=`find ${IN_DIR}/Land_masks/${M}/ -name "*${M}*.nc"`
 
-              #If couldn't find mask file, skip model
-              if [[ -z $mask_file ]]; then
-                echo "WARNING: Could not find mask for ${M}, skipping model"
+              #find files for model+ensemble
+              files=`find $V/$M/$ens/*.nc`
+
+              #Determine number of files
+              no_files=`find $V/$M/$ens/*.nc | wc -l`
+
+
+              #Input file to cdo functions (replaced below if files need merging)
+              in_file=$files
+              
+              
+              #If selected to mask oceans, first check if can find a land mask file
+              #if not, skip model
+    
+              if $mask_oceans; then
+                
+                #Find land mask file
+                mask_file=`find ${IN_DIR}"/../Land_masks/"${M}/ -name "*${M}_${E}*.nc"`
+                
+                #If found several mask files for the experiment, use first one
+                if [ `echo $mask_file | wc -l` -gt 1 ]; then
+                   mask_file=${mask_file[0]}
+                fi
+                
+                #If no mask was found for experiments, use any mask (assumption
+                #that land cover is identical across experiments)
+                if [ `echo $mask_file | wc -l` -lt 1 ]; then
+                  
+                  #Find land mask file
+                  mask_file=`find ${IN_DIR}"/../Land_masks/"${M}/ -name "*${M}*.nc"`
+
+                  #If found several, pick first one
+                  if [ `echo $mask_file | wc -l` -gt 1 ]; then
+                     mask_file=${mask_file[0]}
+                  fi              
+                
+                fi
+
+
+                #If couldn't find mask file, skip model
+                if [[ -z $mask_file ]]; then
+                  echo "WARNING: Could not find mask for ${M}, skipping model"
+                  continue
+                fi
+
+              fi
+              
+
+              #Create output path
+              processed_path="${OUT_DIR}/${E}/${var_short}/${M}/${ens}/"
+
+              mkdir -p $processed_path
+
+
+              #Skips files already processed to speed up processing
+              ext_files=(${processed_path}/*regrid.nc)
+              
+              if [ -e ${ext_files[0]} ]; then
+                echo "${M} - ${var_short} already processed, skipping"
                 continue
               fi
 
-            fi
-            
 
-            #Create output path
-            processed_path="${OUT_DIR}/${E}/${var_short}/${M}/"
+              ### If multiple files, merge files ###
 
-            mkdir -p $processed_path
+              if [ `echo $no_files` -gt 1 ]
+              then
 
+                  #Create output file name
+                  out_merged="${processed_path}/Merged_${var_short}_${M}_${E}_${ens}.nc"
 
-            #Skips files already processed to speed up processing
-            ext_files=(${processed_path}/*regrid.nc)
-            
-            if [ -e ${ext_files[0]} ]; then
-              echo "${M} - ${var_short} already processed, skipping"
-              continue
-            fi
+                  #Set so ignores overlapping time periods (if present)
+                  export SKIP_SAME_TIME=1
 
+                  #Merge time
+                  cdo -L mergetime $files $out_merged
 
-            ### If multiple files, merge files ###
+                  #Find time period (brackets turn result into array)
+                  years=(`cdo showyear $out_merged`)
 
-            if [ `echo $no_files` -gt 1 ]
-            then
-
-                #Create output file name
-                out_merged="${processed_path}/Merged_${var_short}_${M}_${E}_${ens}.nc"
-
-                #Set so ignores overlapping time periods (if present)
-                export SKIP_SAME_TIME=1
-
-                #Merge time
-                cdo -L mergetime $files $out_merged
-
-                #Find time period (brackets turn result into array)
-                years=(`cdo showyear $out_merged`)
-
-                #Write correct years to output file name, finding first and last years (use this as input to cdo)
-                in_file=${out_merged%".nc"}"_"`echo ${years[0]}`"01-"`echo ${years[${#years[@]} - 1]}`"12.nc"
+                  #Write correct years to output file name, finding first and last years (use this as input to cdo)
+                  in_file=${out_merged%".nc"}"_"`echo ${years[0]}`"01-"`echo ${years[${#years[@]} - 1]}`"12.nc"
 
 
-                #Replace merged output file with corrected file name
-                mv $out_merged $in_file
+                  #Replace merged output file with corrected file name
+                  mv $out_merged $in_file
 
-            fi
-
-
-            ###############################################################
-            ### Convert units, mask ocean cells and extract time period ###
-            ###############################################################
+              fi
 
 
-            # #GFDL mask files have multiple variables, need to extract "sftlt"
-            # #or the division below fails.
-            # if [[ $M =~ "GFDL" ]]; then
-            # 
-            #     #Create file name for fixed file
-            #     new_mask_file=${mask_file}"_${var_short}_fixed.nc"
-            # 
-            #     #Select variable sftlf
-            #     cdo -L selname,'sftlf' $mask_file $new_mask_file
-            # 
-            #     #Replace mask file with new file
-            #     mask_file=$new_mask_file
-            # 
-            # 
-            #     #Also fix $in_file, has an extra variable
-            #     fixed_in_file=${in_file}"_fixed.nc"
-            # 
-            #     #Select variable being processed
-            #     cdo -L selname,$var_short $in_file $fixed_in_file
-            # 
-            #     #Remove old $in_file and replace with new fixed file
-            #     rm $in_file
-            #     in_file=$fixed_in_file
-            # fi
-            # 
-            
-            
-            #Create output file name (complete when running each cdo command)
-            processed_file="${processed_path}/${var_short}_${M}_${E}_${ens}"
+              ###############################################################
+              ### Convert units, mask ocean cells and extract time period ###
+              ###############################################################
 
 
-            #########################
-            ### Process variables ###
-            #########################
-            
-            ###--- Mask oceans ---###
-            
-            
-            #First mask for oceans if this option was selected
-            if $mask_oceans; then
-              
-              #Mask ocean cells
-              cdo -L div $in_file -gec,99 $mask_file  ${processed_file}_temp.nc
-              
-              #Replace input file for next step
-              in_file=${processed_file}_temp.nc
-              
-            fi
+              # #GFDL mask files have multiple variables, need to extract "sftlt"
+              # #or the division below fails.
+              # if [[ $M =~ "GFDL" ]]; then
+              # 
+              #     #Create file name for fixed file
+              #     new_mask_file=${mask_file}"_${var_short}_fixed.nc"
+              # 
+              #     #Select variable sftlf
+              #     cdo -L selname,'sftlf' $mask_file $new_mask_file
+              # 
+              #     #Replace mask file with new file
+              #     mask_file=$new_mask_file
+              # 
+              # 
+              #     #Also fix $in_file, has an extra variable
+              #     fixed_in_file=${in_file}"_fixed.nc"
+              # 
+              #     #Select variable being processed
+              #     cdo -L selname,$var_short $in_file $fixed_in_file
+              # 
+              #     #Remove old $in_file and replace with new fixed file
+              #     rm $in_file
+              #     in_file=$fixed_in_file
+              # fi
+              # 
               
               
-          ###--- Select years ---###
-          
-          #Check that wanted years exist in files 
-          years=(`cdo showyear $in_file`)
+              #Create output file name (complete when running each cdo command)
+              processed_file="${processed_path}/${var_short}_${M}_${E}_${ens}"
 
 
-
-
-          #find first and last years 
-          `echo ${years[0]}`
-          
-          `echo ${years[${#years[@]} - 1]}
-
-          
-          #If time period in file shorter, stop 
+              #########################
+              ### Process variables ###
+              #########################
+              
+              ###--- Mask oceans ---###
+              
+              
+              #First mask for oceans if this option was selected
+              if $mask_oceans; then
+                
+                #Some models include several variables in mask file, select
+                #mask variable first to avoid errors
+                temp_mask="${processed_path}/temp_land_mask.nc"
+                cdo selname,$mask_var_name $mask_file $temp_mask
+                
+                #Mask ocean cells
+                cdo -L div $in_file -gec,99 $temp_mask ${processed_file}_temp.nc
+                
+                #Replace input file for next step
+                in_file=${processed_file}_temp.nc
+                
+                #Remove temporary mask
+                rm $temp_mask
+              fi
+                
+                
+            ###--- Select years ---###
             
-          
-          #
-          #Select years
-          cdo selyear,$year_start/$year_end $in_file $out_file
-  
-          infile=
-          
-          
+            #TODO: figure out how to select years depending on experiment !!!!!!!!!!!!!!!!!
             
+            #Hmm in hindsight this check is difficult because
+            #depends on experiment
+            # #Check that wanted years exist in files 
+            # years=(`cdo showyear $in_file`)
+            # 
+            # #find first and last years 
+            # `echo ${years[0]}`
+            # 
+            # `echo ${years[${#years[@]} - 1]}`
+            # 
+            # #If time period in file shorter, stop 
+            # 
+            
+            #
+            years=(`cdo showyear $in_file`)
+            
+            #Set start and end year 
+            year_start=`echo ${years[0]}`
+            year_end=`echo ${years[${#years[@]} - 1]}`
+            
+            # #Select years
+            # cdo selyear,$year_start/$year_end $in_file $out_file
+            # 
+            # infile=
+            # 
+            
+              
 
-            ###--- Air temperature ---###
-            if [[ $V =~ "Amon/tas" ]]; then
+              ###--- Air temperature ---###
+              if [[ $V =~ "Amon/tas" ]]; then
 
-                #Create output file
-                out_file="${processed_file}_deg_C_${year_start}_${year_end}_${E}.nc"
+                  #Create output file
+                  out_file="${processed_file}_deg_C_${year_start}_${year_end}_${E}.nc"
 
-                #Convert Kelvin to Celsius
-                cdo expr,'tas=tas-273.15' -setunit,'degrees C' $in_file $out_file
-
-
-            ###--- Evapotranspiration ---###
-            elif [[ $V =~ "Amon/evspsbl" ]]; then
-
-                #Create output file
-                out_file="${processed_file}_mm_month_${year_start}_${year_end}_${E}.nc"
-
-                #Convert from kg m-2 s-1 to mm/month
-                cdo -L muldpm -expr,'evspsbl=evspsbl*60*60*24' -setunit,'mm/month' $in_file $out_file
+                  #Convert Kelvin to Celsius
+                  cdo expr,'tas=tas-273.15' -setunit,'degrees C' $in_file $out_file
 
 
-            ###--- Precipitation ---###
-            elif [[ $V =~ "Amon/pr" ]]; then
+              ###--- Evapotranspiration ---###
+              elif [[ $V =~ "Amon/evspsbl" ]]; then
 
-                #Create output file
-                out_file="${processed_file}_mm_month_${year_start}_${year_end}_${E}.nc"
+                  #Create output file
+                  out_file="${processed_file}_mm_month_${year_start}_${year_end}_${E}.nc"
 
-                #Convert from kg m-2 s-1 to mm/month
-                cdo muldpm -expr,'pr=pr*60*60*24' -setunit,'mm/month' $in_file ${processed_file}_temp1.nc
-
-                #Replace negative rainfall with zero
-                ncap2 -s 'where(pr < 0) pr=0' -O ${processed_file}_temp1.nc $out_file
-
-                rm ${processed_file}_temp1.nc
+                  #Convert from kg m-2 s-1 to mm/month
+                  cdo -L muldpm -expr,'evspsbl=evspsbl*60*60*24' -setunit,'mm/month' $in_file $out_file
 
 
-            ###--- Gross primary production ---###
-            elif [[ $V =~ "Lmon/gpp" ]]; then
+              ###--- Precipitation ---###
+              elif [[ $V =~ "Amon/pr" ]]; then
 
-                #Create output file
-                out_file="${processed_file}_gC_m2_month_${year_start}_${year_end}_${E}.nc"
+                  #Create output file
+                  out_file="${processed_file}_mm_month_${year_start}_${year_end}_${E}.nc"
+
+                  #Convert from kg m-2 s-1 to mm/month
+                  cdo muldpm -expr,'pr=pr*60*60*24' -setunit,'mm/month' $in_file ${processed_file}_temp1.nc
+
+                  #Replace negative rainfall with zero
+                  ncap2 -s 'where(pr < 0) pr=0' -O ${processed_file}_temp1.nc $out_file
+
+                  rm ${processed_file}_temp1.nc
+
+
+              ###--- Gross primary production ---###
+              elif [[ $V =~ "Lmon/gpp" ]]; then
+
+                  #Create output file
+                  out_file="${processed_file}_gC_m2_month_${year_start}_${year_end}_${E}.nc"
+      
+                  #Convert from kg m-2 s-1 to g C m-2 month-1
+                  cdo muldpm -expr,'gpp=gpp*60*60*24*1000' -setunit,'g C m-2 month-1' $in_file ${processed_file}_temp1.nc
+
+                  #Replace negative GPP with zero (-O switch overwrites existing file if any)
+                  ncap2 -s 'where(gpp < 0) gpp=0' -O ${processed_file}_temp1.nc $out_file
+
+                  rm ${processed_file}_temp1.nc
+
+
+              ###--- Net ecosystem exchange ---###
+              elif [[ $V =~ "Lmon/nep" ]]; then
+
+
+                  #Create output file
+                  out_file="${processed_file}_gC_m2_month_${year_start}_${year_end}_${E}.nc"
+
+                  #Convert from kg m-2 s-1 to g C m-2 month-1, and change sign (to go from NEP to NEE)
+                  cdo muldpm -expr,'nep=nep*60*60*24*1000*(-1)' -setunit,'g C m-2 month-1' $in_file ${processed_file}_temp1.nc
+
+                  #Change variable name from NEP to NEE
+                  cdo chname,nep,nee ${processed_file}_temp1.nc $out_file
+
+                  rm ${processed_file}_temp1.nc
+
     
-                #Convert from kg m-2 s-1 to g C m-2 month-1
-                cdo muldpm -expr,'gpp=gpp*60*60*24*1000' -setunit,'g C m-2 month-1' $in_file ${processed_file}_temp1.nc
 
-                #Replace negative GPP with zero (-O switch overwrites existing file if any)
-                ncap2 -s 'where(gpp < 0) gpp=0' -O ${processed_file}_temp1.nc $out_file
+              ###--- Surface runoff ---###
+              #Important: have mrros before mrro or code will use mrro (because of if argument V "contains" mrro)
+              elif [[ $V =~ "Lmon/mrros" ]]; then
 
-                rm ${processed_file}_temp1.nc
+                  #Create output file
+                  out_file="${processed_file}_mm_month_${year_start}_${year_end}_${E}.nc"
 
+                  #Convert from kg m-2 s-1 to mm/month
+                  cdo muldpm -expr,'mrros=mrros*60*60*24' -setunit,'mm/month' $in_file ${processed_file}_temp1.nc
 
-            ###--- Net ecosystem exchange ---###
-            elif [[ $V =~ "Lmon/nep" ]]; then
+                  #Replace negative runoff with zero
+                  ncap2 -s 'where(mrros < 0) mrros=0' -O ${processed_file}_temp1.nc $out_file
 
-
-                #Create output file
-                out_file="${processed_file}_gC_m2_month_${year_start}_${year_end}_${E}.nc"
-
-                #Convert from kg m-2 s-1 to g C m-2 month-1, and change sign (to go from NEP to NEE)
-                cdo muldpm -expr,'nep=nep*60*60*24*1000*(-1)' -setunit,'g C m-2 month-1' $in_file ${processed_file}_temp1.nc
-
-                #Change variable name from NEP to NEE
-                cdo chname,nep,nee ${processed_file}_temp1.nc $out_file
-
-                rm ${processed_file}_temp1.nc
-
-  
-
-            ###--- Surface runoff ---###
-            #Important: have mrros before mrro or code will use mrro (because of if argument V "contains" mrro)
-            elif [[ $V =~ "Lmon/mrros" ]]; then
-
-                #Create output file
-                out_file="${processed_file}_mm_month_${year_start}_${year_end}_${E}.nc"
-
-                #Convert from kg m-2 s-1 to mm/month
-                cdo muldpm -expr,'mrros=mrros*60*60*24' -setunit,'mm/month' $in_file ${processed_file}_temp1.nc
-
-                #Replace negative runoff with zero
-                ncap2 -s 'where(mrros < 0) mrros=0' -O ${processed_file}_temp1.nc $out_file
-
-                rm ${processed_file}_temp1.nc
+                  rm ${processed_file}_temp1.nc
 
 
-            ###--- Total runoff ---###
-            elif [[ $V =~ "Lmon/mrro" ]]; then
+              ###--- Total runoff ---###
+              elif [[ $V =~ "Lmon/mrro" ]]; then
 
-                #Create output file
-                out_file="${processed_file}_mm_month_${year_start}_${year_end}_${E}.nc"
+                  #Create output file
+                  out_file="${processed_file}_mm_month_${year_start}_${year_end}_${E}.nc"
 
-                #Convert from kg m-2 s-1 to mm/month
-                cdo muldpm -expr,'mrro=mrro*60*60*24' -setunit,'mm/month' $in_file ${processed_file}_temp1.nc
+                  #Convert from kg m-2 s-1 to mm/month
+                  cdo muldpm -expr,'mrro=mrro*60*60*24' -setunit,'mm/month' $in_file ${processed_file}_temp1.nc
 
-                #Replace negative runoff with zero
-                ncap2 -s 'where(mrro < 0) mrro=0' -O ${processed_file}_temp1.nc $out_file
+                  #Replace negative runoff with zero
+                  ncap2 -s 'where(mrro < 0) mrro=0' -O ${processed_file}_temp1.nc $out_file
 
-                rm ${processed_file}_temp1.nc
+                  rm ${processed_file}_temp1.nc
 
 
 
-            ###--- Daily tasmax ---###
-            elif [[ $V =~ "day/tasmax" ]]; then
+              ###--- Daily tasmax ---###
+              elif [[ $V =~ "day/tasmax" ]]; then
 
-                #Create output file
-                out_file="${processed_file}_deg_C_${year_start}_${year_end}_${E}.nc"
+                  #Create output file
+                  out_file="${processed_file}_deg_C_${year_start}_${year_end}_${E}.nc"
 
-                #Convert Kelvin to Celsius (change unit, average to monthly, select years and convert to C)
-                cdo expr,'tasmax=tasmax-273.15' -monmean -setunit,'degrees C' $in_file $out_file
-
-
-            ###--- Daily precip ---###
-            elif [[ $V =~ "day/pr" ]]; then
-
-                #Create output file
-                out_file="${processed_file}_mm_day_${year_start}_${year_end}_${E}.nc"
-
-                #Convert Kelvin to Celsius (change unit, average to monthly, select years and convert to C)
-                cdo expr,'pr=pr*60*60*24' -setunit,'mm/day' $in_file $out_file                
-                
-
-            ###--- All other variables ---###
-            else
-
-                #Create output file
-                out_file="${processed_file}_${year_start}_${year_end}_${E}.nc"
-
-                mv $in_file $out_file
-                
-
-            fi
+                  #Convert Kelvin to Celsius (change unit, average to monthly, select years and convert to C)
+                  cdo expr,'tasmax=tasmax-273.15' -monmean -setunit,'degrees C' $in_file $out_file
 
 
-            ### Tidy up ###
-            
-            #Remove temp files
-            temp_files=`find ${processed_path} -name *temp.nc`
-            if [[ -e $temp_files ]]; then rm $temp_files; fi
-            
-            #Remove merged files
-            merged_files=`find ${processed_path} -name Merged_*.nc`
-            if [[ -e $merged_files ]]; then rm $merged_files; fi
+              ###--- Daily precip ---###
+              elif [[ $V =~ "day/pr" ]]; then
 
-            #Remove fixed GFDL mask file created earlier
-            if [[ $M =~ "GFDL" ]]; then rm $new_mask_file; fi
-            
+                  #Create output file
+                  out_file="${processed_file}_mm_day_${year_start}_${year_end}_${E}.nc"
+
+                  #Convert Kelvin to Celsius (change unit, average to monthly, select years and convert to C)
+                  cdo expr,'pr=pr*60*60*24' -setunit,'mm/day' $in_file $out_file                
+                  
+
+              ###--- All other variables ---###
+              else
+
+                  #Create output file
+                  out_file="${processed_file}_${year_start}_${year_end}_${E}.nc"
+
+                  mv $in_file $out_file
+                  
+
+              fi
+
+
+              ### Tidy up ###
               
-                              
-            ###################################################################
-            ###--- Regrid output file from Pacific- to Greenwich-central ---###
-            ###################################################################
+              #Remove temp files
+              temp_files=`find ${processed_path} -name *temp.nc`
+              if [[ -e $temp_files ]]; then rm $temp_files; fi
+              
+              #Remove merged files
+              merged_files=`find ${processed_path} -name Merged_*.nc`
+              if [[ -e $merged_files ]]; then rm $merged_files; fi
 
-            # Modify output file name
-            outfile_regrid=${out_file%".nc"}"_regrid.nc"
+              
+                
+                                
+              ###################################################################
+              ###--- Regrid output file from Pacific- to Greenwich-central ---###
+              ###################################################################
 
-		        #Regrid using CDO sellonlatbox (note this adjusts lon variable
-            #to range [-180, 180] but not lon_bounds)
-		        cdo sellonlatbox,-180,180,-90,90 $out_file $outfile_regrid
+              # Modify output file name
+              outfile_regrid=${out_file%".nc"}"_regrid.nc"
 
-            #Above CDO command doesn't fix lon_bounds, using a python
-            #script to fix these (provided by Arden)
-            python fix_lon.py "${outfile_regrid}"
-
-		        #Remove temp file if cropping
-		        #rm $outfile_temp
-
-            
-
-			      #Remove non-regridded file and merged time file
-			      rm $out_file
+  		        #Regrid using CDO sellonlatbox (note this adjusts lon variable
+              #to range [-180, 180] but not lon_bounds)
+  		        cdo sellonlatbox,-180,180,-90,90 $out_file $outfile_regrid
 
 
+              #TODO: need to pass dataset name to python script !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+              #also need to deal with grids in CMIP6 when reading this table
+              
+              #Above CDO command doesn't fix lon_bounds, using a python
+              #script to fix these (provided by Arden)
+              python fix_lon.py "${outfile_regrid}"
 
-            ###########################################
-            ###--- Data quality and error checks ---###
-            ###########################################
+  		        #Remove temp file if cropping
+  		        #rm $outfile_temp
 
-            #Sanity check, does output file exist?
-            files_existing=`ls $processed_path`
+              
 
-            #Check if empty string. If so, cat to file
-            if [ -z "$files_existing" ]; then
-
-               echo $processed_path >> failed_files.txt
-
-            fi
-
-
-            #Calculate and save variable global mean. Use to check that variables are not corrupted
-            check_dir="${OUT_DIR}/Data_checks/${E}/${var_short}/Global_mean/"
-            mkdir -p $check_dir
-            
-            #The python script (fix_lon.py) resaves the file with a different name (setgrid*)
-            #Use this when calculating global mean
-            outfile_setgrid=${out_file%".nc"}"_regrid_setgrid.nc"
-            
-			      cdo fldmean $outfile_regrid ${check_dir}/${M}_global_mean_${var_short}.nc
+  			      #Remove non-regridded file and merged time file
+  			      rm $out_file
 
 
-            
-            ##############################
-            ###--- Data check cont. ---###
-            ##############################
 
-            #Plot monthly mean of variable in all models (for regridded files)
-            #Used to check no errors have occurred during processing (or that original file is not corrupted)
+              ###########################################
+              ###--- Data quality and error checks ---###
+              ###########################################
 
-            plot_dir="${OUT_DIR}/Data_checks/Plots/${M}/"
-            mkdir -p $plot_dir
+              #Sanity check, does output file exist?
+              files_existing=`ls $processed_path`
 
-            #Create R script for plotting
-            cat > R_plot.R << EOF
-            library(raster)
-            library(ncdf4)
+              #Check if empty string. If so, cat to file
+              if [ -z "$files_existing" ]; then
 
+                 echo $processed_path >> failed_files.txt
 
-            ### Map of first time slice ###
-            files_regrid <- list.files(path="${OUT_DIR}/${E}/${var_short}/${M}/", recursive=TRUE, 
-                                       pattern="setgrid.nc", full.names=TRUE)    #regridded
-                                       
-            data_regrid <- lapply(files_regrid, brick, stopIfNotEqualSpaced=FALSE)
+              fi
 
 
-            pdf("${plot_dir}/${var_short}_${E}_${M}_monthly_mean_regridded.pdf", 
-                height=5, width=8)
-            par(mai=c(0.2,0.2,0.2,0.6))
-            par(mfcol=c(ceiling(sqrt(length(data_regrid))), ceiling(sqrt(length(data_regrid)))))
-            lapply(data_regrid, function(x) plot(mean(x), ylab="", xlab="", yaxt="n", xaxt="n"))
-            dev.off()
+              #Calculate and save variable global mean. Use to check that variables are not corrupted
+              check_dir="${OUT_DIR}/Data_checks/${E}/${var_short}/Global_mean/${M}/"
+              mkdir -p $check_dir
+              
+              #The python script (fix_lon.py) resaves the file with a different name (setgrid*)
+              #Use this when calculating global mean
+              outfile_setgrid=${out_file%".nc"}"_regrid_setgrid.nc"
+              
+  			      cdo fldmean $outfile_regrid ${check_dir}/${M}_global_mean_${var_short}.nc
 
 
-        		### Global mean time series ###
-        		files_mean <- list.files(path="${check_dir}", recursive=TRUE, 
-                                     pattern="${M}_global_mean", full.names=TRUE)
+              
+              ##############################
+              ###--- Data check cont. ---###
+              ##############################
 
-        		nc_handles <- lapply(files_mean, nc_open)
-        		nc_data    <- lapply(nc_handles, ncvar_get, varid="${var_short}")
+              #Plot monthly mean of variable in all models (for regridded files)
+              #Used to check no errors have occurred during processing (or that original file is not corrupted)
 
-        		pdf("${plot_dir}/${var_short}_${E}_${M}_global_mean_timeseries.pdf", 
-                height=13, width=40)
-        		par(mai=c(0.2,0.2,0.2,0.6))
-        		par(mfcol=c(ceiling(sqrt(length(nc_data))), ceiling(sqrt(length(nc_data)))))
-        		lapply(nc_data, function(x) plot(x, type="l", col="blue", ylab="", xlab="", 
-                   yaxt="n", xaxt="n"))
-        		dev.off()
+              plot_dir="${OUT_DIR}/Data_checks/Plots/${E}/${M}/${var_short}/"
+              mkdir -p $plot_dir
+
+              #Create R script for plotting
+              cat > R_plot.R << EOF
+              library(raster)
+              library(ncdf4)
+
+
+              ### Map of first time slice ###
+              files_regrid <- list.files(path="${OUT_DIR}/${E}/${var_short}/${M}/", recursive=TRUE, 
+                                         pattern="setgrid.nc", full.names=TRUE)    #regridded
+                                         
+              data_regrid <- lapply(files_regrid, brick, stopIfNotEqualSpaced=FALSE)
+
+
+              pdf("${plot_dir}/${var_short}_${E}_${M}_${ens}_monthly_mean_regridded.pdf", 
+                  height=5, width=8)
+              par(mai=c(0.2,0.2,0.2,0.6))
+              par(mfcol=c(ceiling(sqrt(length(data_regrid))), ceiling(sqrt(length(data_regrid)))))
+              lapply(data_regrid, function(x) plot(mean(x), ylab="", xlab="", yaxt="n", xaxt="n"))
+              dev.off()
+
+
+          		### Global mean time series ###
+          		files_mean <- list.files(path="${check_dir}", recursive=TRUE, 
+                                       pattern="${M}_global_mean", full.names=TRUE)
+
+          		nc_handles <- lapply(files_mean, nc_open)
+          		nc_data    <- lapply(nc_handles, ncvar_get, varid="${var_short}")
+
+          		pdf("${plot_dir}/${var_short}_${E}_${M}_${ens}_global_mean_timeseries.pdf", 
+                  height=13, width=40)
+          		par(mai=c(0.2,0.2,0.2,0.6))
+          		par(mfcol=c(ceiling(sqrt(length(nc_data))), ceiling(sqrt(length(nc_data)))))
+          		lapply(nc_data, function(x) plot(x, type="l", col="blue", ylab="", xlab="", 
+                     yaxt="n", xaxt="n"))
+          		dev.off()
 
 
 EOF
 
-            #Run script and remove afterwards
-            Rscript R_plot.R
-            rm R_plot.R
+              #Run script and remove afterwards
+              Rscript R_plot.R
+              rm R_plot.R
 
+
+            done #ensembles
 
         done #models
 
