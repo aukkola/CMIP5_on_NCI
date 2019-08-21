@@ -572,7 +572,7 @@ do
               #Use this when calculating global mean
               outfile_setgrid=${out_file%".nc"}"_regrid_setgrid.nc"
               
-  			      cdo fldmean $outfile_regrid ${check_dir}/${M}_global_mean_${var_short}.nc
+  			      cdo fldmean $outfile_setgrid ${check_dir}/${M}_global_mean_${var_short}.nc
 
 
               
@@ -592,7 +592,8 @@ do
               library(ncdf4)
 
 
-              ### Map of first time slice ###
+              ### Map of mean of all time slices ###
+              
               files_regrid <- list.files(path="${OUT_DIR}/${E}/${var_short}/${M}/", recursive=TRUE, 
                                          pattern="setgrid.nc", full.names=TRUE)    #regridded
                                          
@@ -603,11 +604,13 @@ do
                   height=5, width=8)
               par(mai=c(0.2,0.2,0.2,0.6))
               par(mfcol=c(ceiling(sqrt(length(data_regrid))), ceiling(sqrt(length(data_regrid)))))
+              
               lapply(data_regrid, function(x) plot(mean(x), ylab="", xlab="", yaxt="n", xaxt="n"))
               dev.off()
 
 
           		### Global mean time series ###
+              
           		files_mean <- list.files(path="${check_dir}", recursive=TRUE, 
                                        pattern="${M}_global_mean", full.names=TRUE)
 
@@ -618,6 +621,7 @@ do
                   height=13, width=40)
           		par(mai=c(0.2,0.2,0.2,0.6))
           		par(mfcol=c(ceiling(sqrt(length(nc_data))), ceiling(sqrt(length(nc_data)))))
+              
           		lapply(nc_data, function(x) plot(x, type="l", col="blue", ylab="", xlab="", 
                      yaxt="n", xaxt="n"))
           		dev.off()
