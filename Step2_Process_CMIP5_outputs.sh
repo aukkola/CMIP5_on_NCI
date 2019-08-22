@@ -18,7 +18,7 @@
 # 4) python with package pandas
 
 
-# Code processes monthly CMIP5/CMIP6 outputs
+# Code processes CMIP5/CMIP6 outputs
 # i) merges all years into one file (when applicable),
 # ii) converts required variables to desired units,
 # iii) extracts desired time period
@@ -554,7 +554,7 @@ do
               ###########################################
 
               #Sanity check, does output file exist?
-              files_existing=`ls $processed_path`
+              files_existing=`ls $processed_path/"*setgrid.nc"`
 
               #Check if empty string. If so, cat to file
               if [ -z "$files_existing" ]; then
