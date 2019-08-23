@@ -53,7 +53,7 @@ source activate /home/561/amu561/miniconda2
 ####################
 
 #Direcotry for storing processed datasets
-DIR="/g/data1/w35/amu561/CMIP6_drought/CMIP5_Data"
+DIR="/g/data1/w35/amu561/CMIP6_drought/CMIP6_Data"
 
 
 
@@ -61,13 +61,13 @@ DIR="/g/data1/w35/amu561/CMIP6_drought/CMIP5_Data"
 ### 2. SET OPTIONS ###
 ######################
 
-dataset="cmip5"
+dataset="cmip6"
 
 #Clef search with options for models, experiments, variables etc.
-search_criteria="--local $dataset --experiment historical --experiment rcp85 \
-                 --experiment rcp45 --variable mrro --variable mrros \
+search_criteria="--local $dataset --experiment historical --experiment ssp585 \
+                 --experiment ssp245 --variable mrro --variable mrros \
                  --variable pr --variable sftlf --table fx \
-                 --mip Lmon --mip Amon"
+                  --table Lmon --table Amon"
 
 
 ###for testing DELETE LATER
@@ -91,11 +91,11 @@ mask_var_name="sftlf"
 
 
 #Directory for saving symbolic links to original data
-IN_DIR=$DIR"/Raw_CMIP5_data"
+IN_DIR=$DIR"/Raw_CMIP6_data"
 mkdir -p $IN_DIR
 
 #Directory for processed folder
-OUT_DIR=$DIR"/Processed_CMIP5_data/"
+OUT_DIR=$DIR"/Processed_CMIP6_data/"
 mkdir -p $OUT_DIR
 
 #Temporary directory for storing interim search results
