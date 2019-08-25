@@ -83,6 +83,7 @@ sorted_results$ensemble   <- sapply(all_res, function(x) x[14])
 sorted_results$variable   <- sapply(all_res, function(x) x[16])
 
 
+missing_versions <- NA
 #Some variable names include an underscore
 if (any (grepl("_", sorted_results$variable))) {
   
@@ -103,7 +104,7 @@ if (any (grepl("_", sorted_results$variable))) {
 sorted_results$version    <- sapply(all_res, function(x) x[15])
 
 #Replace versions with those obtained from var names above
-sorted_results$version[miss_ind] <- missing_versions[miss_ind]
+if (!(is.na(missing_versions[1]))) sorted_results$version[miss_ind] <- missing_versions[miss_ind]
 
 
 #Get time resolution
