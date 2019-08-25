@@ -554,7 +554,7 @@ do
               ###########################################
 
               #Sanity check, does output file exist?
-              files_existing=`ls $processed_path/"*setgrid.nc"`
+              files_existing=`ls $processed_path/*setgrid.nc`
 
               #Check if empty string. If so, cat to file
               if [ -z "$files_existing" ]; then
