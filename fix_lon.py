@@ -52,6 +52,7 @@ def repair_netcdf(fname, grids):
 	# ========== Set the path and the file name ==========
 	# fname = "%s_%s_%s_r1i1p1_%s_1950_2050_%s_regrid.nc" %(var, model, sen, units, sen)
 	fout  = "%s_setgrid" % (fname)
+
 	
 	# ========== Create a list of files to cleanup ==========
 	cleanup = []
@@ -71,6 +72,14 @@ def repair_netcdf(fname, grids):
 	gfile    = open("%sGriddes" % fname, "r") 
 	# Split the lines of the grid file
 	ginfo    =  gfile.read().splitlines()
+	
+	#Some models have no lat/lon bounds, skip in this case and copy
+	#"regrid" file as "setgrid"
+	if not (any([n.startswith("xbounds") for n in ginfo]) and 
+		   any([n.startswith("ybounds") for n in ginfo])):
+		subp.call("cp %s.nc %s.nc" % (fname, fout), shell=True)
+		return cleanup	
+	
 	# Check and see if the start is known
 	if (
 		any([n.startswith("xfirst") for n in ginfo])
