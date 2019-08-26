@@ -78,6 +78,7 @@ def repair_netcdf(fname, grids):
 	if not (any([n.startswith("xbounds") for n in ginfo]) and 
 		   any([n.startswith("ybounds") for n in ginfo])):
 		subp.call("cp %s.nc %s.nc" % (fname, fout), shell=True)
+		cleanup.append("%s.nc" % fname)
 		return cleanup	
 	
 	# Check and see if the start is known
