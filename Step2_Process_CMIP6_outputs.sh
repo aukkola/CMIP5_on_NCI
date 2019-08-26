@@ -559,7 +559,7 @@ do
               #Check if empty string. If so, cat to file
               if [ -z "$files_existing" ]; then
 
-                 echo $processed_path >> failed_files.txt
+                 echo $processed_path >> failed_files_${dataset}.txt
 
               fi
 
