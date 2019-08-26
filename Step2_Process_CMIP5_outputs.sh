@@ -247,7 +247,7 @@ do
 
 
               #Skips files already processed to speed up processing
-              ext_files=(${processed_path}/*regrid.nc)
+              ext_files=(${processed_path}/*setgrid.nc)
               
               if [ -e ${ext_files[0]} ]; then
                 echo "${M} - ${var_short} already processed, skipping"
