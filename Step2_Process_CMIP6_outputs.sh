@@ -66,8 +66,8 @@ dataset="cmip6"
 #Clef search with options for models, experiments, variables etc.
 search_criteria="--local $dataset --experiment historical --experiment ssp585 \
                  --experiment ssp245 --variable mrro --variable mrros \
-                 --variable pr --variable sftlf --table fx \
-                  --table Lmon --table Amon"
+                 --variable pr --variable sftlf --variable tas --variable evspsbl \
+                 --table fx --table Lmon --table Amon"
 
 
 ###for testing DELETE LATER
