@@ -208,31 +208,21 @@ do
     
               if $mask_oceans; then
                 
-                #Find land mask file
-                mask_file=`find ${IN_DIR}"/../Land_masks/"${M}/ -name "*${M}_${E}*.nc"`
-                
-                #If found several mask files for the experiment, use first one
-                if [ `echo $mask_file | wc -l` -gt 1 ]; then
-                   mask_file=${mask_file[0]}
-                fi
-                
+                #Find land mask file (use first one if found several)
+                mask_file=`find ${IN_DIR}"/../Land_masks/"${M}/ -name "*${M}_${E}*.nc" | head -n 1`
+                                
                 #If no mask was found for experiments, use any mask (assumption
                 #that land cover is identical across experiments)
-                if [ `echo $mask_file | wc -l` -lt 1 ]; then
+                if [ -z $mask_file]; then #[ `echo $mask_file | wc -l` -lt 1 ]; then
                   
-                  #Find land mask file
-                  mask_file=`find ${IN_DIR}"/../Land_masks/"${M}/ -name "*${M}*.nc"`
-
-                  #If found several, pick first one
-                  if [ `echo $mask_file | wc -l` -gt 1 ]; then
-                     mask_file=${mask_file[0]}
-                  fi              
-                
+                  #Find land mask file (select first one)
+                  mask_file=`find ${IN_DIR}"/../Land_masks/"${M}/ -name "*${M}*.nc" | head -n 1`
+            
                 fi
 
 
                 #If couldn't find mask file, skip model
-                if [[ -z $mask_file ]]; then
+                if [ -z $mask_file ]; then
                   echo "WARNING: Could not find mask for ${M}, skipping model"
                   continue
                 fi
