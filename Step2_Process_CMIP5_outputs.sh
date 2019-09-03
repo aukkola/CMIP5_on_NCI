@@ -334,7 +334,9 @@ do
                 cdo selname,$mask_var_name $mask_file $temp_mask
                 
                 #Mask ocean cells
-                cdo -L div $in_file -gec,99 $temp_mask ${processed_file}_temp.nc
+                #(doing selname here because GFDL has several variables in file,
+                #causes errors when doing masking)
+                cdo -L div -selname,$var_short $in_file -gec,99 $temp_mask ${processed_file}_temp.nc
                 
                 #Replace input file for next step
                 in_file=${processed_file}_temp.nc
@@ -602,10 +604,10 @@ do
 
               pdf("${plot_dir}/${var_short}_${E}_${M}_${ens}_monthly_mean_regridded.pdf", 
                   height=5, width=8)
-              par(mai=c(0.2,0.2,0.2,0.6))
+              par(mai=c(0.4,0.4,0.2,0.6))
               par(mfcol=c(ceiling(sqrt(length(data_regrid))), ceiling(sqrt(length(data_regrid)))))
               
-              lapply(data_regrid, function(x) plot(mean(x), ylab="", xlab="", yaxt="n", xaxt="n"))
+              lapply(data_regrid, function(x) plot(mean(x), ylab="", xlab=""))
               dev.off()
 
 
@@ -619,11 +621,10 @@ do
 
           		pdf("${plot_dir}/${var_short}_${E}_${M}_${ens}_global_mean_timeseries.pdf", 
                   height=13, width=40)
-          		par(mai=c(0.2,0.2,0.2,0.6))
+          		par(mai=c(0.5,0.4,0.2,0.6))
           		par(mfcol=c(ceiling(sqrt(length(nc_data))), ceiling(sqrt(length(nc_data)))))
               
-          		lapply(nc_data, function(x) plot(x, type="l", col="blue", ylab="", xlab="", 
-                     yaxt="n", xaxt="n"))
+          		lapply(nc_data, function(x) plot(x, type="l", col="blue", ylab="", xlab="time"))
           		dev.off()
 
 
