@@ -65,9 +65,8 @@ dataset="cmip5"
 
 #Clef search with options for models, experiments, variables etc.
 search_criteria="--local $dataset --experiment historical --experiment rcp85 \
-                 --experiment rcp45 --variable mrro --variable mrros \
-                 --variable pr --variable sftlf --variable tas --variable evap \
-                 --mip fx --mip Lmon --mip Amon"
+                 --experiment rcp45 --variable pr --variable sftlf --variable tas \
+                 --mip fx --mip Amon"
 
 
 ###for testing DELETE LATER
@@ -113,12 +112,16 @@ mkdir -p $TEMP_DIR
 #File where to save search results
 in_file=$TEMP_DIR/"${dataset}_clef_search_results.csv"
 
+
+#N.B. 
+#Commented out because can't currently call Clef from a job script
+
 #Remove this file if it exists, otherwise new results will be appended to it
-if [[ -f "$in_file" ]]; then rm $in_file; fi
+#if [[ -f "$in_file" ]]; then rm $in_file; fi
 
 
 #Perform Clef search
-clef $search_criteria >> $in_file
+#clef $search_criteria >> $in_file
 
 
 #Filter search results to find common models and ensemble members

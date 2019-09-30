@@ -36,7 +36,7 @@ dir_name <- "historical_rcp4.5"
 ### 5. DECIDE IF WANT LAND MASKS ###
 
 #Retrieves land masks for selected models 
-get_land_masks <- TRUE
+get_land_masks <- FALSE  #####CHANGE ONCE LAND MASKS BECOME AVAILABLE !!!!
 
 #name of land mask variable
 mask_var  <- "sftlf"
@@ -226,10 +226,10 @@ if (length(mod_ind) >0) final_results <- final_results[-mod_ind,]
 for (m in 1:length(common_models)) {
   
   #Find model 
-  ind <- which(final_results$model == common_models[k])
+  ind <- which(final_results$model == common_models[m])
   
   #Find extra ensemble members
-  ens_ind <- which(!(final_results[ind,]$ensemble %in% selected_ens[[k]]))
+  ens_ind <- which(!(final_results$ensemble[ind] %in% selected_ens[[m]]))
   
   if (length(ens_ind) >0) final_results <- final_results[-ind[ens_ind]]
   
@@ -282,6 +282,13 @@ if (length(vr_ind) > 0) {
 #Loop through models
 for (k in 1:nrow(final_results)) {
   
+  
+  #Skip EC-Earth models, corrupt outputs
+  if (grepl("EC-Earth", entry$model)) {
+    next
+  }
+  
+  
   #Extract data for this iteration
   entry <- final_results[k,]
   
@@ -333,9 +340,9 @@ for (k in 1:nrow(final_results)) {
   #will otherwise return surplus variables. Also adding "_" to avoid similar 
   #var names to be returned)
 
-  file.symlink(from=list.files(entry$path, full.names=TRUE, 
+  tryCatch(file.symlink(from=list.files(entry$path, full.names=TRUE, 
                pattern=paste0(entry$variable, "_")), 
-               to=target_dir)
+               to=target_dir), error=function(e) print(entry$path))
   
 }
 

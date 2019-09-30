@@ -65,9 +65,10 @@ dataset="cmip6"
 
 #Clef search with options for models, experiments, variables etc.
 search_criteria="--local $dataset --experiment historical --experiment ssp585 \
-                 --experiment ssp245 --variable mrro --variable mrros \
-                 --variable pr --variable sftlf --variable tas --variable evspsbl \
-                 --table fx --table Lmon --table Amon"
+                 --experiment ssp245 \
+                 --variable pr --variable tas \ 
+                 --table fx --table Amon"
+#--variable sftlf 
 
 
 ###for testing DELETE LATER
@@ -76,7 +77,7 @@ search_criteria="--local $dataset --experiment historical --experiment ssp585 \
 
 #Mask oceans? Set to true (masking) or false (no masking). If set to true and no
 #mask is found, the model and variable is skipped.
-mask_oceans=true
+mask_oceans=false  #false because don't have land masks available for all models
 
 mask_var_name="sftlf"
 
@@ -113,12 +114,16 @@ mkdir -p $TEMP_DIR
 #File where to save search results
 in_file=$TEMP_DIR/"${dataset}_clef_search_results.csv"
 
+
+#N.B. 
+#Commented out because can't currently call Clef from a job script
+
 #Remove this file if it exists, otherwise new results will be appended to it
-if [[ -f "$in_file" ]]; then rm $in_file; fi
+#if [[ -f "$in_file" ]]; then rm $in_file; fi
 
 
 #Perform Clef search
-clef $search_criteria >> $in_file
+#clef $search_criteria >> $in_file
 
 
 #Filter search results to find common models and ensemble members
@@ -213,7 +218,7 @@ do
                                 
                 #If no mask was found for experiments, use any mask (assumption
                 #that land cover is identical across experiments)
-                if [ -z $mask_file]; then #[ `echo $mask_file | wc -l` -lt 1 ]; then
+                if [ -z $mask_file ]; then #[ `echo $mask_file | wc -l` -lt 1 ]; then
                   
                   #Find land mask file (select first one)
                   mask_file=`find ${IN_DIR}"/../Land_masks/"${M}/ -name "*${M}*.nc" | head -n 1`

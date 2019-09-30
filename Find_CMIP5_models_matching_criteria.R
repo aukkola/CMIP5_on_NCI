@@ -240,10 +240,10 @@ if (length(mod_ind) >0) final_results <- final_results[-mod_ind,]
 for (m in 1:length(common_models)) {
   
   #Find model 
-  ind <- which(final_results$model == common_models[k])
+  ind <- which(final_results$model == common_models[m])
   
   #Find extra ensemble members
-  ens_ind <- which(!(final_results[ind,]$ensemble %in% selected_ens[[k]]))
+  ens_ind <- which(!(final_results[ind,]$ensemble %in% selected_ens[[m]]))
   
   if (length(ens_ind) >0) final_results <- final_results[-ind[ens_ind]]
   
