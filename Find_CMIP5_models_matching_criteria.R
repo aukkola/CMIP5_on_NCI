@@ -245,7 +245,7 @@ for (m in 1:length(common_models)) {
   #Find extra ensemble members
   ens_ind <- which(!(final_results[ind,]$ensemble %in% selected_ens[[m]]))
   
-  if (length(ens_ind) >0) final_results <- final_results[-ind[ens_ind]]
+  if (length(ens_ind) >0) final_results <- final_results[-ind[ens_ind],]
   
 }
 
