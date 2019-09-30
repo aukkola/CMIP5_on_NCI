@@ -283,15 +283,14 @@ if (length(vr_ind) > 0) {
 for (k in 1:nrow(final_results)) {
   
   
+  #Extract data for this iteration
+  entry <- final_results[k,]
+  
+  
   #Skip EC-Earth models, corrupt outputs
   if (grepl("EC-Earth", entry$model)) {
     next
   }
-  
-  
-  #Extract data for this iteration
-  entry <- final_results[k,]
-  
   
   
   #If saving to same directory
