@@ -79,6 +79,8 @@ mask_oceans=true
 
 mask_var_name="sftlf"
 
+land_threshold=5
+
 #-------------------------------------------------------------------------------
 
 #end of user defined settings
@@ -330,7 +332,7 @@ do
                 #Mask ocean cells
                 #(doing selname here because GFDL has several variables in file,
                 #causes errors when doing masking)
-                cdo -L div -selname,$var_short $in_file -gec,99 $temp_mask ${processed_file}_temp.nc
+                cdo -L div -selname,$var_short $in_file -gec,$land_threshold $temp_mask ${processed_file}_temp.nc
                 
                 #Replace input file for next step
                 in_file=${processed_file}_temp.nc
