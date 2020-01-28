@@ -22,12 +22,11 @@ import os
 import subprocess as subp
 import argparse
 import warnings as warn
+from netCDF4 import Dataset
+
 #==============================================================================
 
 def main(args):
-	# ========== Load in the lookup table of the CMIP5 grids ==========
-	# SOURCE: https://portal.enes.org/data/enes-model-data/cmip5/resolution
-	grids   = pd.read_csv("./cmip6_model_lookup.csv", header=0)
 
 	# ========== Set up the Key Infomation ==========
 	fname   = args.fname
@@ -36,7 +35,7 @@ def main(args):
 		fname = fname[:-3]
 
 	# ========== Create a for loop to loop over every model ==========
-	fcleanup = repair_netcdf(fname, grids)
+	fcleanup = repair_netcdf(fname)
 
 	# ========== cleanup the files ==========
 	for file in fcleanup:
@@ -44,7 +43,7 @@ def main(args):
 
 
 #==============================================================================
-def repair_netcdf(fname, grids):
+def repair_netcdf(fname):
 	"""
 	Repairs the grid of a given netcdf file
 	"""
@@ -61,6 +60,20 @@ def repair_netcdf(fname, grids):
 	if not os.path.isfile(fname+".nc"):
 		# check if the file exists with a different name
 		raise IOError("WARNING: The file %s cannot be found"% fname)
+
+	
+	# ========== Read longitude from NC file ==========
+	fh = Dataset(fname+".nc", mode='r')
+	try:
+		lon = fh.variables['longitude'][:]
+	except:
+		try:
+			lon = fh.variables['lon'][:]
+		except:
+			lon = fh.variables['easting'][:] #easting
+
+
+
 
 	# ========== Create a new grid ==========
 	# Save the current grid
@@ -116,7 +129,7 @@ def repair_netcdf(fname, grids):
 		model = fname.split("/")[-2]
 		new_grid.append('xfirst    = -180')
 		new_grid.append('xinc      = %s' %  str(
-			float(grids[grids["Model"]==model]["Longitude"]) ))
+			float(lon) ))
 	
 
 	# Check the y values, if they are missing use the ones in the original grid file
