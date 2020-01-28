@@ -4,7 +4,6 @@
 #clear R environment
 rm(list=ls(all=TRUE))
 
-args = commandArgs(trailingOnly=TRUE)
 
 ####################
 ### Set criteria ###
@@ -13,26 +12,34 @@ args = commandArgs(trailingOnly=TRUE)
 ### 1. SET PATH ###
 
 #Directory where to copy data
-outdir <- args[1] #"/g/data1/w35/amu561/CMIP6_drought/CMIP6_Data/Raw_CMIP6_data"
+outdir <- "/g/data1/w35/amu561/CMIP6_drought/CMIP5_Data/Raw_CMIP5_data"
 
 
-### 2. DECIDE FILE STRUCTURE ###
+### 3. SELECT ENSEMBLES ###
+
+#Select ensemble (set to NA if don't require a specific ensemble member,
+#in this case code will select the first member common to all variables. If
+#no common member found, model won't be processed)
+ensemble <- NA #"r1i1p1"
+
+
+### 4. DECIDE FILE STRUCTURE ###
 
 #Should model files for all experiments be
 #saved in same folder (specify name of folder)?
 #If want to e.g. combine historical and RCP8.5 runs,
 #use this option, else set to FALSE
-combine  <- as.logical(args[2]) #FALSE
-dir_name <- args[3] #"historical_rcp4.5" 
+combine  <- FALSE
+dir_name <- "historical_rcp4.5" 
 
 
-### 3. DECIDE IF WANT LAND MASKS ###
+### 5. DECIDE IF WANT LAND MASKS ###
 
 #Retrieves land masks for selected models 
-get_land_masks <- as.logical(args[4]) #FALSE  #####CHANGE ONCE LAND MASKS BECOME AVAILABLE !!!!
+get_land_masks <- TRUE
 
 #name of land mask variable
-mask_var  <- args[5] #"sftlf"
+mask_var  <- "sftlf"
 
 
 #------------------------------------------------------------------------------
@@ -44,8 +51,8 @@ mask_var  <- args[5] #"sftlf"
 
 
 #Get Clef search results
-results <- as.vector(read.csv(paste0(args[6], "/cmip6_clef_search_results.csv"), 
-                    header=FALSE, colClasses="character"))
+results <- as.vector(read.csv("/g/data1/w35/amu561/CMIP6_drought/CMIP5_Data/temp_res/cmip5_clef_search_results.csv", 
+                              header=FALSE, colClasses="character"))
 
 
 
@@ -70,19 +77,38 @@ sorted_results$model      <- sapply(all_res, function(x) x[9])
 sorted_results$experiment <- sapply(all_res, function(x) x[10])
 
 #Get ensemble member
-sorted_results$ensemble   <- sapply(all_res, function(x) x[11])
+sorted_results$ensemble   <- sapply(all_res, function(x) x[14])
 
 #Get variable
-sorted_results$variable   <- sapply(all_res, function(x) x[13])
+sorted_results$variable   <- sapply(all_res, function(x) x[16])
 
-#Get grid type
-sorted_results$grid       <- sapply(all_res, function(x) x[14])
+
+missing_versions <- NA
+#Some variable names include an underscore
+if (any (grepl("_", sorted_results$variable))) {
+  
+  vars_temp <- lapply(sorted_results$variable, function(x) strsplit(x, "_"))
+  
+  #Grab first results (this is the variable)
+  sorted_results$variable <- sapply(vars_temp, function(x) x[[1]][1])
+  
+  #Some of these results also include the version, need to grab that
+  missing_versions <- sapply(vars_temp, function(x) x[[1]][2])
+  
+  miss_ind <- which(!is.na(missing_versions))
+  
+}
+
 
 #Get version
 sorted_results$version    <- sapply(all_res, function(x) x[15])
 
+#Replace versions with those obtained from var names above
+if (!(is.na(missing_versions[1]))) sorted_results$version[miss_ind] <- missing_versions[miss_ind]
+
+
 #Get time resolution
-sorted_results$time_resolution <- sapply(all_res, function(x) x[12])
+sorted_results$time_resolution <- sapply(all_res, function(x) x[13])
 
 #Get paths
 sorted_results$path <- results[,1]
@@ -97,14 +123,20 @@ if (get_land_masks) {
   
   #Get mask results
   mask_results <- sorted_results[mask_ind,]
-    
+  
   #And the rest
   sorted_results <- sorted_results[-mask_ind,]
   
 }
- 
-  
-  
+
+
+#FIO-ESM is provided as lower and uppercase, fix this
+if (any(sorted_results$model %in% c("FIO-ESM", "fio-esm"))) {
+  ind <- which(sorted_results$model %in% c("FIO-ESM", "fio-esm"))
+  sorted_results$model[ind] <- "FIO-ESM"
+}
+
+
 
 
 ##########################
@@ -153,7 +185,7 @@ for (k in 1:length(common_models)) {
   
   #Find all ensemble members for each experiment and variable
   avail_ens <- lapply(1:length(ensemble), function(exp) mapply(function(ens,mod) ens[which(mod==common_models[k])], 
-                                                             ens=ensemble[[exp]], mod=models[[exp]], SIMPLIFY=FALSE))
+                                                               ens=ensemble[[exp]], mod=models[[exp]], SIMPLIFY=FALSE))
   
   
   #Find all unique ensembles
@@ -189,17 +221,6 @@ if (any(sapply(selected_ens, length) < 1)) {
 
 
 
-
-#############################################
-### Should add a check for grid type here ###
-#############################################
-
-
-
-
-
-
-
 ####################################
 ### Collate final search results ###
 ####################################
@@ -210,9 +231,9 @@ final_results <- sorted_results
 ### Remove extra models ###
 
 mod_ind <- which(!(final_results$model %in% common_models))
-  
+
 if (length(mod_ind) >0) final_results <- final_results[-mod_ind,]
-  
+
 
 ### Remove extra ensembles ###
 
@@ -222,9 +243,9 @@ for (m in 1:length(common_models)) {
   ind <- which(final_results$model == common_models[m])
   
   #Find extra ensemble members
-  ens_ind <- which(!(final_results$ensemble[ind] %in% selected_ens[[m]]))
+  ens_ind <- which(!(final_results[ind,]$ensemble %in% selected_ens[[m]]))
   
-  if (length(ens_ind) > 0) final_results <- final_results[-ind[ens_ind],]
+  if (length(ens_ind) >0) final_results <- final_results[-ind[ens_ind],]
   
 }
 
@@ -249,14 +270,26 @@ if (length(vr_ind) > 0) {
     
     #Finds rows that are duplicates
     common_ind <- which(apply(match, MARGIN=1, function(x) all(x == match[vr_ind[v],])))
-      
+    
     #Check which one of these is the newest version
     #(remove "v" from start, convert to numeric and find biggest)
-    max_ind <- which.max(as.numeric(substr(final_results$version[common_ind], 2, 9)))
-
+    
+    #Some models have the latest versions as "latest", not a time stamp
+    #Take this is available
+    if (any(final_results$version[common_ind] == "latest")) {
       
+      #Take first available "latest" if several
+      max_ind <- which(final_results$version[common_ind] == "latest")[1]
+    
+    #Else calculate from time/version stamp
+    } else {
+      max_ind <- which.max(as.numeric(substr(final_results$version[common_ind], 2, 9)))
+      
+    }
+      
+    
     rm_ind <- append(rm_ind, common_ind[-max_ind])
-      
+    
   }
   
   #Remove all old versions
@@ -275,15 +308,9 @@ if (length(vr_ind) > 0) {
 #Loop through models
 for (k in 1:nrow(final_results)) {
   
-  
   #Extract data for this iteration
   entry <- final_results[k,]
   
-  
-  #Skip EC-Earth models, corrupt outputs
-  if (grepl("EC-Earth", entry$model)) {
-    next
-  }
   
   
   #If saving to same directory
@@ -292,8 +319,8 @@ for (k in 1:nrow(final_results)) {
     target_dir <- paste(outdir, dir_name, entry$time_resolution,
                         entry$variable, entry$model,
                         entry$ensemble, sep="/")
-
-  #Else
+    
+    #Else
   } else {
     #Create output directory
     target_dir <- paste(outdir, entry$experiment, entry$time_resolution,
@@ -310,31 +337,31 @@ for (k in 1:nrow(final_results)) {
   #Check that path contains correct model, variable and experiment  
   
   #Other models
- 
+  
   #Model check
   if (!grepl(entry$model, entry$path)) {
-  stop("File path doesn't contain correct model")
+    stop("File path doesn't contain correct model")
   } 
   #Variable check
   if (!grepl(entry$variable, entry$path)) {
     stop("File path doesn't contain correct variable")
   }
-    
+  
   
   #Experiment check
   if (!grepl(entry$experiment, entry$path)) {
     stop("File path doesn't contain correct experiment")
   }
-
-
+  
+  
   
   #Create symbolic link to file (need to add pattern because some models 
   #will otherwise return surplus variables. Also adding "_" to avoid similar 
   #var names to be returned)
-
-  tryCatch(file.symlink(from=list.files(entry$path, full.names=TRUE, 
-               pattern=paste0(entry$variable, "_")), 
-               to=target_dir), error=function(e) print(entry$path))
+  
+  file.symlink(from=list.files(entry$path, full.names=TRUE, 
+                               pattern=paste0(entry$variable, "_")), 
+               to=target_dir)
   
 }
 
@@ -345,120 +372,119 @@ for (k in 1:nrow(final_results)) {
 ### Retrieve corresponding land masks ###
 #########################################
 
-if (get_land_masks) {
-    
-  for (k in 1:length(common_models)) {
-    
-    
-    #Extract results for model
-    mod_res <- mask_results[which(mask_results$model == common_models[k]), ]
-    
-    
-    #If found results, copy file
-    if (nrow(mod_res) > 0) {
-      
-      
-      ### Check for duplicate versions ###
-      
-      #Check if any experiment/ensemble/variable combo duplicated
-      
-      #Variables to match
-      mod_match <- mod_res[,c("experiment", "ensemble", "variable")]
-      
-      #Find duplicates
-      vr_ind <- which(duplicated(mod_match))
-      
-      #If found dupcliates, only get latest version
-      if (length(vr_ind) > 0) {
-        
-        rm_ind <- vector()
-        
-        for (v in 1:length(vr_ind)) {
-          
-          #Finds rows that are duplicates
-          common_ind <- which(apply(mod_match, MARGIN=1, function(x) all(x == mod_match[vr_ind[v],])))
-          
-          #Check which one of these is the newest version
-          #(remove "v" from start, convert to numeric and find biggest)
-          max_ind <- which.max(as.numeric(substr(final_results$version[common_ind], 2, 9)))
-          
-          
-          rm_ind <- append(rm_ind, common_ind[-max_ind])
-          
-        }
-        
-        #Remove all old versions
-        mod_res <- mod_res[-rm_ind,]
-        
-      }
-      
-      
-      
-      ### Copy files ###
-      
-      #Not saving these separately for each experiment at this stage,
-      #Should probably be changed later
-      
-      #If saving to same directory
-      if (combine) {
-        #Create output directory
-        target_dir <- paste(outdir, "/../Land_masks/", mod_res$model[1], sep="/")
-        
-        #Else
-      } else {
-        #Create output directory
-        target_dir <- paste(outdir,  "/../Land_masks/", mod_res$model[1], sep="/")
-      }
-      
-      dir.create(target_dir, recursive=TRUE, showWarnings = FALSE)
-      
-      
-      #Loop through files
-      for (f in 1:nrow(mod_res)) {
-        
-        #Basic sanity checks:
-        #Check that path contains correct model, variable and experiment  
-   
-        #Extract data for this iteration
-        entry <- mod_res[f,]
-        
-        
-        #Model check
-        if (!grepl(entry$model, entry$path)) {
-          stop("File path doesn't contain correct model")
-        } 
-        #Variable check
-        if (!grepl(entry$variable, entry$path)) {
-          stop("File path doesn't contain correct variable")
-        }
-        
-        
-        #Experiment check
-        if (!grepl(entry$experiment, entry$path)) {
-          stop("File path doesn't contain correct experiment")
-        }
-        
-        
-        
-        #Create symbolic link to file (need to add pattern because some models 
-        #will otherwise return surplus variables. Also adding "_" to avoid similar 
-        #var names to be returned)
-        
-        file.symlink(from=list.files(entry$path, full.names=TRUE, 
-                     pattern=paste0(entry$variable, "_")), 
-                     to=target_dir)
-        
-        
-        
-        
-        
-      }
-      
-      
-      
-      
-    } #if found files 
-    
-  } #models
+
+for (k in 1:length(common_models)) {
   
-}  
+  
+  #Extract results for model
+  mod_res <- mask_results[which(mask_results$model == common_models[k]), ]
+  
+  
+  #If found results, copy file
+  if (nrow(mod_res) > 0) {
+    
+    
+    ### Check for duplicate versions ###
+    
+    #Check if any experiment/ensemble/variable combo duplicated
+    
+    #Variables to match
+    mod_match <- mod_res[,c("experiment", "ensemble", "variable")]
+    
+    #Find duplicates
+    vr_ind <- which(duplicated(mod_match))
+    
+    #If found dupcliates, only get latest version
+    if (length(vr_ind) > 0) {
+      
+      rm_ind <- vector()
+      
+      for (v in 1:length(vr_ind)) {
+        
+        #Finds rows that are duplicates
+        common_ind <- which(apply(mod_match, MARGIN=1, function(x) all(x == mod_match[vr_ind[v],])))
+        
+        #Check which one of these is the newest version
+        #(remove "v" from start, convert to numeric and find biggest)
+        max_ind <- which.max(as.numeric(substr(final_results$version[common_ind], 2, 9)))
+        
+        
+        rm_ind <- append(rm_ind, common_ind[-max_ind])
+        
+      }
+      
+      #Remove all old versions
+      mod_res <- mod_res[-rm_ind,]
+      
+    }
+    
+    
+    
+    ### Copy files ###
+    
+    #Not saving these separately for each experiment at this stage,
+    #Should probably be changed later
+    
+    #If saving to same directory
+    if (combine) {
+      #Create output directory
+      target_dir <- paste(outdir, "/../Land_masks/", mod_res$model[1], sep="/")
+      
+      #Else
+    } else {
+      #Create output directory
+      target_dir <- paste(outdir,  "/../Land_masks/", mod_res$model[1], sep="/")
+    }
+    
+    dir.create(target_dir, recursive=TRUE, showWarnings = FALSE)
+    
+    
+    #Loop through files
+    for (f in 1:nrow(mod_res)) {
+      
+      #Basic sanity checks:
+      #Check that path contains correct model, variable and experiment  
+      
+      #Extract data for this iteration
+      entry <- mod_res[f,]
+      
+      
+      #Model check
+      if (!grepl(entry$model, entry$path)) {
+        stop("File path doesn't contain correct model")
+      } 
+      #Variable check
+      if (!grepl(entry$variable, entry$path)) {
+        stop("File path doesn't contain correct variable")
+      }
+      
+      
+      #Experiment check
+      if (!grepl(entry$experiment, entry$path)) {
+        stop("File path doesn't contain correct experiment")
+      }
+      
+      
+      
+      #Create symbolic link to file (need to add pattern because some models 
+      #will otherwise return surplus variables. Also adding "_" to avoid similar 
+      #var names to be returned)
+      
+      file.symlink(from=list.files(entry$path, full.names=TRUE, 
+                                   pattern=paste0(entry$variable, "_")), 
+                   to=target_dir)
+      
+      
+      
+      
+      
+    }
+    
+    
+    
+    
+  } #if found files 
+  
+} #models
+
+
