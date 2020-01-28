@@ -7,8 +7,8 @@
 #PBS -j oe
 #PBS -q normal
 #PBS -l wd
-#PBS -l other=gdata1
 #PBS -l jobfs=1GB
+#PBS -l storage=gdata/w35+gdata/hh5+gdata/oi10
 
 
 ### REQUIRES: ###
@@ -43,7 +43,7 @@ module use /g/data3/hh5/public/modules
 module load conda/analysis3-unstable
 
 #This needs fixing on raijin, have to load miniconda to use pandas
-source activate /home/561/amu561/miniconda2
+#source activate /home/561/amu561/miniconda2
 #module load python
 
 
@@ -53,7 +53,7 @@ source activate /home/561/amu561/miniconda2
 ####################
 
 #Direcotry for storing processed datasets
-DIR="/g/data1/w35/amu561/CMIP6_drought/CMIP6_Data"
+DIR="/g/data/w35/amu561/CMIP6_for_Nina/CMIP6_data"
 
 
 
@@ -64,10 +64,9 @@ DIR="/g/data1/w35/amu561/CMIP6_drought/CMIP6_Data"
 dataset="cmip6"
 
 #Clef search with options for models, experiments, variables etc.
-search_criteria="--local $dataset --experiment historical --experiment ssp585 \
-                 --experiment ssp245 \
-                 --variable pr --variable tas \ 
-                 --table fx --table Amon"
+search_criteria="--local $dataset --experiment historical \
+                 --variable pr --variable tas --variable sfcWind \ 
+                 --table fx --table day"
 #--variable sftlf 
 
 
@@ -80,6 +79,9 @@ search_criteria="--local $dataset --experiment historical --experiment ssp585 \
 mask_oceans=false  #false because don't have land masks available for all models
 
 mask_var_name="sftlf"
+
+land_threshold=5
+
 
 #-------------------------------------------------------------------------------
 
@@ -102,6 +104,13 @@ mkdir -p $OUT_DIR
 #Temporary directory for storing interim search results
 TEMP_DIR=$DIR"/temp_res"
 mkdir -p $TEMP_DIR
+
+#Should model files for all experiments be
+#saved in same folder (specify name of folder)?
+#If want to e.g. combine historical and RCP8.5 runs into one time series,
+#use this option, else set to FALSE
+combine="FALSE"
+dir_name="historical_rcp4.5" 
 
 
 
@@ -130,7 +139,8 @@ in_file=$TEMP_DIR/"${dataset}_clef_search_results.csv"
 #TODO: need to pass file paths to R on the command line so don't need to set in R file !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 #options that need to be passed: mask_oceans, mask name in_file, IN_DIR, combine experiements or not
 
-Rscript "Find_${dataset}_models_matching_criteria.R"
+Rscript "Find_${dataset}_models_matching_criteria.R" $IN_DIR $combine $dir_name \
+$mask_oceans $mask_var_name $TEMP_DIR
 
 
 
@@ -329,7 +339,7 @@ do
                 cdo selname,$mask_var_name $mask_file $temp_mask
                 
                 #Mask ocean cells
-                cdo -L div $in_file -gec,99 $temp_mask ${processed_file}_temp.nc
+                cdo -L div $in_file -gec,$land_threshold $temp_mask ${processed_file}_temp.nc
                 
                 #Replace input file for next step
                 in_file=${processed_file}_temp.nc

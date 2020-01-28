@@ -9,6 +9,7 @@
 #PBS -l wd
 #PBS -l other=gdata1
 #PBS -l jobfs=1GB
+#PBS -l storage=gdata/w35+gdata/hh5+gdata/oi10
 
 
 ### REQUIRES: ###
@@ -43,7 +44,7 @@ module use /g/data3/hh5/public/modules
 module load conda/analysis3-unstable
 
 #This needs fixing on raijin, have to load miniconda to use pandas
-source activate /home/561/amu561/miniconda2
+#source activate /home/561/amu561/miniconda2
 #module load python
 
 
@@ -53,7 +54,7 @@ source activate /home/561/amu561/miniconda2
 ####################
 
 #Direcotry for storing processed datasets
-DIR="/g/data1/w35/amu561/CMIP6_drought/CMIP5_Data"
+DIR="/g/data/w35/amu561/CMIP6_drought/CMIP5_Data"
 
 
 
@@ -104,6 +105,13 @@ TEMP_DIR=$DIR"/temp_res"
 mkdir -p $TEMP_DIR
 
 
+#Should model files for all experiments be
+#saved in same folder (specify name of folder)?
+#If want to e.g. combine historical and RCP8.5 runs,
+#use this option, else set to FALSE
+combine="FALSE"
+dir_name="historical_rcp4.5" 
+
 
 ######################################
 ### Search database to find models ###
@@ -127,12 +135,11 @@ in_file=$TEMP_DIR/"${dataset}_clef_search_results.csv"
 
 
 #Filter search results to find common models and ensemble members
-#TODO: need to pass file paths to R on the command line so don't need to set in R file !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-#options that need to be passed: mask_oceans, mask name in_file, IN_DIR, combine experiements or not
+#pass arguments to R in the order:
+#outdir, combine, dir_name, get_land_masks, mask_var, temp_dir
 
-Rscript "Find_${dataset}_models_matching_criteria.R"
-
-
+Rscript "Find_${dataset}_models_matching_criteria.R" $IN_DIR $combine $dir_name \
+$mask_oceans $mask_var_name $TEMP_DIR
 
 
 ########################
