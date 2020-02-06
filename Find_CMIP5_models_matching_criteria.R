@@ -4,6 +4,7 @@
 #clear R environment
 rm(list=ls(all=TRUE))
 
+args = commandArgs(trailingOnly=TRUE)
 
 ####################
 ### Set criteria ###
@@ -12,34 +13,26 @@ rm(list=ls(all=TRUE))
 ### 1. SET PATH ###
 
 #Directory where to copy data
-outdir <- "/g/data1/w35/amu561/CMIP6_drought/CMIP5_Data/Raw_CMIP5_data"
+outdir <- args[1]
 
 
-### 3. SELECT ENSEMBLES ###
-
-#Select ensemble (set to NA if don't require a specific ensemble member,
-#in this case code will select the first member common to all variables. If
-#no common member found, model won't be processed)
-ensemble <- NA #"r1i1p1"
-
-
-### 4. DECIDE FILE STRUCTURE ###
+### 2. DECIDE FILE STRUCTURE ###
 
 #Should model files for all experiments be
 #saved in same folder (specify name of folder)?
 #If want to e.g. combine historical and RCP8.5 runs,
 #use this option, else set to FALSE
-combine  <- FALSE
-dir_name <- "historical_rcp4.5" 
+combine  <- as.logical(args[2]) 
+dir_name <- args[3] 
 
 
-### 5. DECIDE IF WANT LAND MASKS ###
+### 3. DECIDE IF WANT LAND MASKS ###
 
 #Retrieves land masks for selected models 
-get_land_masks <- TRUE
+get_land_masks <- as.logical(args[4]) 
 
 #name of land mask variable
-mask_var  <- "sftlf"
+mask_var  <- args[5]
 
 
 #------------------------------------------------------------------------------
@@ -51,7 +44,7 @@ mask_var  <- "sftlf"
 
 
 #Get Clef search results
-results <- as.vector(read.csv("/g/data1/w35/amu561/CMIP6_drought/CMIP5_Data/temp_res/cmip5_clef_search_results.csv", 
+results <- as.vector(read.csv(paste0(args[6], "/cmip5_clef_search_results.csv"), 
                               header=FALSE, colClasses="character"))
 
 

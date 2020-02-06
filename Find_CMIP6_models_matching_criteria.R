@@ -13,7 +13,7 @@ args = commandArgs(trailingOnly=TRUE)
 ### 1. SET PATH ###
 
 #Directory where to copy data
-outdir <- args[1] #"/g/data1/w35/amu561/CMIP6_drought/CMIP6_Data/Raw_CMIP6_data"
+outdir <- args[1]
 
 
 ### 2. DECIDE FILE STRUCTURE ###
@@ -22,17 +22,17 @@ outdir <- args[1] #"/g/data1/w35/amu561/CMIP6_drought/CMIP6_Data/Raw_CMIP6_data"
 #saved in same folder (specify name of folder)?
 #If want to e.g. combine historical and RCP8.5 runs,
 #use this option, else set to FALSE
-combine  <- as.logical(args[2]) #FALSE
-dir_name <- args[3] #"historical_rcp4.5" 
+combine  <- as.logical(args[2]) 
+dir_name <- args[3] 
 
 
 ### 3. DECIDE IF WANT LAND MASKS ###
 
 #Retrieves land masks for selected models 
-get_land_masks <- as.logical(args[4]) #FALSE  #####CHANGE ONCE LAND MASKS BECOME AVAILABLE !!!!
+get_land_masks <- as.logical(args[4]) 
 
 #name of land mask variable
-mask_var  <- args[5] #"sftlf"
+mask_var  <- args[5]
 
 
 #------------------------------------------------------------------------------
