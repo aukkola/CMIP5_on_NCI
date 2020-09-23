@@ -280,11 +280,6 @@ for (k in 1:nrow(final_results)) {
   entry <- final_results[k,]
   
   
-  #Skip EC-Earth models, corrupt outputs
-  if (grepl("EC-Earth", entry$model)) {
-    next
-  }
-  
   
   #If saving to same directory
   if (combine) {
