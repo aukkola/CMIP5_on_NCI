@@ -44,8 +44,8 @@ mask_var  <- args[5]
 
 
 #Get Clef search results
-results <- as.vector(read.csv(paste0(args[6], "/cmip5_clef_search_results.csv"), 
-                              header=FALSE, colClasses="character"))
+results <- as.vector(read.csv(args[6], header=FALSE, 
+			      colClasses="character"))
 
 
 

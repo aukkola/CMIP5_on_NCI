@@ -137,7 +137,7 @@ clef $search_criteria >> $in_file
 #options that need to be passed: mask_oceans, mask name in_file, IN_DIR, combine experiements or not
 
 Rscript "Find_${dataset}_models_matching_criteria.R" $IN_DIR $combine $dir_name \
-$mask_oceans $mask_var_name $TEMP_DIR
+$mask_oceans $mask_var_name $in_file
 
 
 

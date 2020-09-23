@@ -137,7 +137,7 @@ clef $search_criteria >> $in_file
 #outdir, combine, dir_name, get_land_masks, mask_var, temp_dir
 
 Rscript "Find_${dataset}_models_matching_criteria.R" $IN_DIR $combine $dir_name \
-$mask_oceans $mask_var_name $TEMP_DIR
+$mask_oceans $mask_var_name $in_file
 
 
 ########################
