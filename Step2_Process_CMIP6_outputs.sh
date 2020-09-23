@@ -8,7 +8,7 @@
 #PBS -q normal
 #PBS -l wd
 #PBS -l jobfs=1GB
-#PBS -l storage=gdata/w35+gdata/hh5+gdata/oi10
+#PBS -l storage=gdata/w35+gdata/hh5+gdata/oi10+gdata/ua8+gdata/fs38
 
 
 ### REQUIRES: ###
@@ -124,15 +124,12 @@ dir_name="historical_rcp4.5"
 in_file=$TEMP_DIR/"${dataset}_clef_search_results.csv"
 
 
-#N.B. 
-#Commented out because can't currently call Clef from a job script
-
 #Remove this file if it exists, otherwise new results will be appended to it
-#if [[ -f "$in_file" ]]; then rm $in_file; fi
+if [[ -f "$in_file" ]]; then rm $in_file; fi
 
 
 #Perform Clef search
-#clef $search_criteria >> $in_file
+clef $search_criteria >> $in_file
 
 
 #Filter search results to find common models and ensemble members
