@@ -7,9 +7,8 @@
 #PBS -j oe
 #PBS -q normal
 #PBS -l wd
-#PBS -l other=gdata1
 #PBS -l jobfs=1GB
-#PBS -l storage=gdata/w35+gdata/hh5+gdata/oi10+gdata/ua8+gdata/fs38
+#PBS -l storage=gdata/w35+gdata/hh5+gdata/rr3+gdata/al33
 
 
 ### REQUIRES: ###
