@@ -365,119 +365,120 @@ for (k in 1:nrow(final_results)) {
 ### Retrieve corresponding land masks ###
 #########################################
 
-
-for (k in 1:length(common_models)) {
+if (get_land_masks) {
   
-  
-  #Extract results for model
-  mod_res <- mask_results[which(mask_results$model == common_models[k]), ]
-  
-  
-  #If found results, copy file
-  if (nrow(mod_res) > 0) {
+  for (k in 1:length(common_models)) {
     
     
-    ### Check for duplicate versions ###
+    #Extract results for model
+    mod_res <- mask_results[which(mask_results$model == common_models[k]), ]
     
-    #Check if any experiment/ensemble/variable combo duplicated
     
-    #Variables to match
-    mod_match <- mod_res[,c("experiment", "ensemble", "variable")]
-    
-    #Find duplicates
-    vr_ind <- which(duplicated(mod_match))
-    
-    #If found dupcliates, only get latest version
-    if (length(vr_ind) > 0) {
+    #If found results, copy file
+    if (nrow(mod_res) > 0) {
       
-      rm_ind <- vector()
       
-      for (v in 1:length(vr_ind)) {
+      ### Check for duplicate versions ###
+      
+      #Check if any experiment/ensemble/variable combo duplicated
+      
+      #Variables to match
+      mod_match <- mod_res[,c("experiment", "ensemble", "variable")]
+      
+      #Find duplicates
+      vr_ind <- which(duplicated(mod_match))
+      
+      #If found dupcliates, only get latest version
+      if (length(vr_ind) > 0) {
         
-        #Finds rows that are duplicates
-        common_ind <- which(apply(mod_match, MARGIN=1, function(x) all(x == mod_match[vr_ind[v],])))
+        rm_ind <- vector()
         
-        #Check which one of these is the newest version
-        #(remove "v" from start, convert to numeric and find biggest)
-        max_ind <- which.max(as.numeric(substr(final_results$version[common_ind], 2, 9)))
+        for (v in 1:length(vr_ind)) {
+          
+          #Finds rows that are duplicates
+          common_ind <- which(apply(mod_match, MARGIN=1, function(x) all(x == mod_match[vr_ind[v],])))
+          
+          #Check which one of these is the newest version
+          #(remove "v" from start, convert to numeric and find biggest)
+          max_ind <- which.max(as.numeric(substr(final_results$version[common_ind], 2, 9)))
+          
+          
+          rm_ind <- append(rm_ind, common_ind[-max_ind])
+          
+        }
         
+        #Remove all old versions
+        mod_res <- mod_res[-rm_ind,]
         
-        rm_ind <- append(rm_ind, common_ind[-max_ind])
-        
-      }
-      
-      #Remove all old versions
-      mod_res <- mod_res[-rm_ind,]
-      
-    }
-    
-    
-    
-    ### Copy files ###
-    
-    #Not saving these separately for each experiment at this stage,
-    #Should probably be changed later
-    
-    #If saving to same directory
-    if (combine) {
-      #Create output directory
-      target_dir <- paste(outdir, "/../Land_masks/", mod_res$model[1], sep="/")
-      
-      #Else
-    } else {
-      #Create output directory
-      target_dir <- paste(outdir,  "/../Land_masks/", mod_res$model[1], sep="/")
-    }
-    
-    dir.create(target_dir, recursive=TRUE, showWarnings = FALSE)
-    
-    
-    #Loop through files
-    for (f in 1:nrow(mod_res)) {
-      
-      #Basic sanity checks:
-      #Check that path contains correct model, variable and experiment  
-      
-      #Extract data for this iteration
-      entry <- mod_res[f,]
-      
-      
-      #Model check
-      if (!grepl(entry$model, entry$path)) {
-        stop("File path doesn't contain correct model")
-      } 
-      #Variable check
-      if (!grepl(entry$variable, entry$path)) {
-        stop("File path doesn't contain correct variable")
-      }
-      
-      
-      #Experiment check
-      if (!grepl(entry$experiment, entry$path)) {
-        stop("File path doesn't contain correct experiment")
       }
       
       
       
-      #Create symbolic link to file (need to add pattern because some models 
-      #will otherwise return surplus variables. Also adding "_" to avoid similar 
-      #var names to be returned)
+      ### Copy files ###
       
-      file.symlink(from=list.files(entry$path, full.names=TRUE, 
-                                   pattern=paste0(entry$variable, "_")), 
-                   to=target_dir)
+      #Not saving these separately for each experiment at this stage,
+      #Should probably be changed later
+      
+      #If saving to same directory
+      if (combine) {
+        #Create output directory
+        target_dir <- paste(outdir, "/../Land_masks/", mod_res$model[1], sep="/")
+        
+        #Else
+      } else {
+        #Create output directory
+        target_dir <- paste(outdir,  "/../Land_masks/", mod_res$model[1], sep="/")
+      }
+      
+      dir.create(target_dir, recursive=TRUE, showWarnings = FALSE)
+      
+      
+      #Loop through files
+      for (f in 1:nrow(mod_res)) {
+        
+        #Basic sanity checks:
+        #Check that path contains correct model, variable and experiment  
+        
+        #Extract data for this iteration
+        entry <- mod_res[f,]
+        
+        
+        #Model check
+        if (!grepl(entry$model, entry$path)) {
+          stop("File path doesn't contain correct model")
+        } 
+        #Variable check
+        if (!grepl(entry$variable, entry$path)) {
+          stop("File path doesn't contain correct variable")
+        }
+        
+        
+        #Experiment check
+        if (!grepl(entry$experiment, entry$path)) {
+          stop("File path doesn't contain correct experiment")
+        }
+        
+        
+        
+        #Create symbolic link to file (need to add pattern because some models 
+        #will otherwise return surplus variables. Also adding "_" to avoid similar 
+        #var names to be returned)
+        
+        file.symlink(from=list.files(entry$path, full.names=TRUE, 
+                                     pattern=paste0(entry$variable, "_")), 
+                     to=target_dir)
+        
+        
+        
+        
+        
+      }
       
       
       
       
-      
-    }
+    } #if found files 
     
-    
-    
-    
-  } #if found files 
+  } #models
   
-} #models
-
-
+}  
