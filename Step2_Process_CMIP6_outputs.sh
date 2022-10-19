@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#PBS -P dt6
+#PBS -P oq98
 #PBS -l walltime=5:00:00
 #PBS -l mem=5GB
 #PBS -l ncpus=1
@@ -8,7 +8,7 @@
 #PBS -q normal
 #PBS -l wd
 #PBS -l jobfs=1GB
-#PBS -l storage=gdata/w35+gdata/hh5+gdata/oi10+gdata/ua8+gdata/fs38
+#PBS -l storage=gdata/w97+gdata/hh5+gdata/oi10+gdata/ua8+gdata/fs38
 
 
 ### REQUIRES: ###
@@ -53,7 +53,7 @@ module load conda/analysis3-unstable
 ####################
 
 #Direcotry for storing processed datasets
-DIR="/g/data/w35/amu561/CMIP6_for_Nina/CMIP6_data"
+DIR="/g/data/w97/amu561/CMIP6_for_Nina/CMIP6_data"
 
 
 
