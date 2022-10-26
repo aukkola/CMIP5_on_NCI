@@ -34,10 +34,10 @@
 # If no mask available, model is skipped
 
 
-
+module unload R
 module load cdo
 module load nco
-module load R
+module load R/4.0.0
 
 module use /g/data3/hh5/public/modules
 module load conda/analysis3-unstable
@@ -53,7 +53,7 @@ module load conda/analysis3-unstable
 ####################
 
 #Direcotry for storing processed datasets
-DIR="/g/data/w97/amu561/CMIP6_for_Nina/CMIP6_data"
+DIR="/g/data/w97/amu561/CMIP6_runoff_drought/CMIP6_data"
 
 
 
@@ -64,12 +64,15 @@ DIR="/g/data/w97/amu561/CMIP6_for_Nina/CMIP6_data"
 dataset="cmip6"
 
 #Clef search with options for models, experiments, variables etc.
-search_criteria="--local $dataset --experiment historical \
-                 --variable pr --variable tas --variable sfcWind \ 
-                 --table fx --table day"
-#--variable sftlf 
+search_criteria="--local $dataset --experiment historical --experiment ssp245 \
+	               --experiment ssp585 --experiment ssp126 \
+                 --variable pr --variable tas --variable mrro \
+		             --variable sftlf \ 
+                 --table fx --table Amon --table Lmon"
 
 
+# search_criteria="--local $dataset --experiment historical --experiment ssp245 --experiment ssp585 --experiment ssp126 --variable pr --variable tas --variable mrro \
+# --variable sftlf --table fx --table Amon --table Lmon"
 ###for testing DELETE LATER
 #search_criteria="--local $dataset --experiment historical --variable mrro --variable mrros --table Lmon"
 
@@ -364,7 +367,7 @@ do
             # 
             
             #
-            years=(`cdo showyear $in_file`)
+            years=(`cdo -s showyear $in_file`)
             
             #Set start and end year 
             year_start=`echo ${years[0]}`
@@ -604,7 +607,9 @@ do
 
               pdf("${plot_dir}/${var_short}_${E}_${M}_${ens}_monthly_mean_regridded.pdf", 
                   height=5, width=8)
-              par(mai=c(0.2,0.2,0.2,0.6))
+              par(mai=c(0.2,0.2,0.2,0.6))              
+							par(omi=c(0.2,0.2,0.2,0.6))
+
               par(mfcol=c(ceiling(sqrt(length(data_regrid))), ceiling(sqrt(length(data_regrid)))))
               
               lapply(data_regrid, function(x) plot(mean(x), ylab="", xlab="", yaxt="n", xaxt="n"))
@@ -622,10 +627,11 @@ do
           		pdf("${plot_dir}/${var_short}_${E}_${M}_${ens}_global_mean_timeseries.pdf", 
                   height=13, width=40)
           		par(mai=c(0.2,0.2,0.2,0.6))
+							par(omi=c(0.4,0.6,0.2,0.6))
           		par(mfcol=c(ceiling(sqrt(length(nc_data))), ceiling(sqrt(length(nc_data)))))
               
-          		lapply(nc_data, function(x) plot(x, type="l", col="blue", ylab="", xlab="", 
-                     yaxt="n", xaxt="n"))
+          		lapply(nc_data, function(x) plot(x, type="l", col="blue", 
+										                           ylab=${var_short}, xlab="Time step"))
           		dev.off()
 
 
