@@ -44,8 +44,8 @@ mask_var  <- args[5]
 
 
 #Get Clef search results
-results <- as.vector(read.csv(args[6], header=FALSE, 
-			      colClasses="character"))
+results <- unlist(as.vector(read.csv(args[6], header=FALSE, 
+			      colClasses="character")))
 
 
 
@@ -54,13 +54,13 @@ results <- as.vector(read.csv(args[6], header=FALSE,
 #Currently having to retrieve info from paths, and hardcode indices
 
 #Create a table for search results
-sorted_results <- as.data.frame(matrix(data=NA, nrow=nrow(results), ncol=8))
+sorted_results <- as.data.frame(matrix(data=NA, nrow=length(results), ncol=8))
 colnames(sorted_results)  <- c("model", "experiment", "ensemble", "variable", 
                                "grid", "version", "time_resolution", "path")
 
 
 #Separate search results
-all_res <- lapply(results, function(x) strsplit(x, "/"))[[1]]
+all_res <- lapply(results, function(x) strsplit(x, "/")[[1]])
 
 
 #Get models
@@ -104,7 +104,7 @@ if (!(is.na(missing_versions[1]))) sorted_results$version[miss_ind] <- missing_v
 sorted_results$time_resolution <- sapply(all_res, function(x) x[13])
 
 #Get paths
-sorted_results$path <- results[,1]
+sorted_results$path <- results
 
 
 
