@@ -14,16 +14,16 @@
 ### REQUIRES: ###
 # 1) CDO command line tools
 # 2) NCO
-# 3) R with packages raster and ncdf4
+# 3) R with packages raster and ncdf4 (used to create plots for sanity checks, 
+	   #relevant code down the bottom can be commented out if not needed)
 # 4) python with package pandas
 
 
 # Code processes CMIP5/CMIP6 outputs
 # i) merges all years into one file (when applicable),
 # ii) converts required variables to desired units,
-# iii) extracts desired time period
-# iiii) masks out non-land grid cells (fi mask_oceans selected)
-# iiiii) regrids data from Pacific- to Greenwich-central
+# iii) masks out non-land grid cells (fi mask_oceans selected)
+# iiii) regrids data from Pacific- to Greenwich-central
 
 
 # Note:
@@ -41,10 +41,6 @@ module load R/4.0.0
 
 module use /g/data3/hh5/public/modules
 module load conda/analysis3-unstable
-
-#This needs fixing on raijin, have to load miniconda to use pandas
-#source activate /home/561/amu561/miniconda2
-#module load python
 
 
 
@@ -71,11 +67,6 @@ search_criteria="--local $dataset --experiment historical --experiment ssp245 \
                  --table fx --table Amon --table Lmon"
 
 
-# search_criteria="--local $dataset --experiment historical --experiment ssp245 --experiment ssp585 --experiment ssp126 --variable pr --variable tas --variable mrro \
-# --variable sftlf --table fx --table Amon --table Lmon"
-###for testing DELETE LATER
-#search_criteria="--local $dataset --experiment historical --variable mrro --variable mrros --table Lmon"
-
 
 #Mask oceans? Set to true (masking) or false (no masking). If set to true and no
 #mask is found, the model and variable is skipped.
@@ -84,6 +75,14 @@ mask_oceans=false  #false because don't have land masks available for all models
 mask_var_name="sftlf"
 
 land_threshold=5
+
+
+#Should model files for all experiments be
+#saved in same folder (specify name of folder)?
+#If want to e.g. combine historical and RCP8.5 runs into one time series,
+#use this option, else set to FALSE
+combine="FALSE"
+dir_name="historical_rcp4.5" 
 
 
 #-------------------------------------------------------------------------------
@@ -107,13 +106,6 @@ mkdir -p $OUT_DIR
 #Temporary directory for storing interim search results
 TEMP_DIR=$DIR"/temp_res"
 mkdir -p $TEMP_DIR
-
-#Should model files for all experiments be
-#saved in same folder (specify name of folder)?
-#If want to e.g. combine historical and RCP8.5 runs into one time series,
-#use this option, else set to FALSE
-combine="FALSE"
-dir_name="historical_rcp4.5" 
 
 
 
@@ -349,22 +341,7 @@ do
               fi
                 
                 
-            ###--- Select years ---###
-            
-            #TODO: figure out how to select years depending on experiment !!!!!!!!!!!!!!!!!
-            
-            #Hmm in hindsight this check is difficult because
-            #depends on experiment
-            # #Check that wanted years exist in files 
-            # years=(`cdo showyear $in_file`)
-            # 
-            # #find first and last years 
-            # `echo ${years[0]}`
-            # 
-            # `echo ${years[${#years[@]} - 1]}`
-            # 
-            # #If time period in file shorter, stop 
-            # 
+            ###--- Check dataset years ---###
             
             #
             years=(`cdo -s showyear $in_file`)
@@ -376,7 +353,7 @@ do
             # #Select years
             # cdo selyear,$year_start/$year_end $in_file $out_file
             # 
-            # infile=
+            # in_file=
             # 
             
               
@@ -536,19 +513,12 @@ do
               #to range [-180, 180] but not lon_bounds)
   		        cdo sellonlatbox,-180,180,-90,90 $out_file $outfile_regrid
 
-
-              #TODO: need to pass dataset name to python script !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-              #also need to deal with grids in CMIP6 when reading this table
-              
+          
               #Above CDO command doesn't fix lon_bounds, using a python
               #script to fix these (provided by Arden)
               python fix_lon.py "${outfile_regrid}"
 
-  		        #Remove temp file if cropping
-  		        #rm $outfile_temp
-
-              
-
+  
   			      #Remove non-regridded file and merged time file
   			      rm $out_file
 
