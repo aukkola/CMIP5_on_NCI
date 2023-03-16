@@ -547,7 +547,7 @@ do
               #Use this when calculating global mean
               outfile_setgrid=${out_file%".nc"}"_regrid_setgrid.nc"
               
-  			      cdo fldmean $outfile_setgrid ${check_dir}/${M}_global_mean_${var_short}.nc
+  			      cdo fldmean $outfile_setgrid ${check_dir}/${M}_${ens}_global_mean_${var_short}.nc
 
 
               
@@ -589,7 +589,7 @@ do
           		### Global mean time series ###
               
           		files_mean <- list.files(path="${check_dir}", recursive=TRUE, 
-                                       pattern="${M}_global_mean", full.names=TRUE)
+                                       pattern="${M}_${ens}_global_mean", full.names=TRUE)
 
           		nc_handles <- lapply(files_mean, nc_open)
           		nc_data    <- lapply(nc_handles, ncvar_get, varid="${var_short}")
@@ -601,7 +601,7 @@ do
           		par(mfcol=c(ceiling(sqrt(length(nc_data))), ceiling(sqrt(length(nc_data)))))
               
           		lapply(nc_data, function(x) plot(x, type="l", col="blue", 
-										                           ylab=${var_short}, xlab="Time step"))
+										                           ylab="${var_short}", xlab="Time step"))
           		dev.off()
 
 
