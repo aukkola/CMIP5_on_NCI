@@ -483,8 +483,8 @@ do
                   #Create output file
                   out_file="${processed_file}_deg_C_${year_start}_${year_end}_${E}.nc"
 
-                  #Convert Kelvin to Celsius (change unit, average to monthly, select years and convert to C)
-                  cdo expr,'tasmax=tasmax-273.15' -monmean -setunit,'degrees C' $in_file $out_file
+                  #Convert Kelvin to Celsius (change unit, select years and convert to C)
+                  cdo expr,'tasmax=tasmax-273.15' -setunit,'degrees C' $in_file $out_file
 
 
               ###--- Daily precip ---###
